@@ -9,9 +9,9 @@ android {
     defaultConfig {
         applicationId = "com.lnu.tclhdmilauncher"
         minSdk        = 25
-        targetSdk     = 37
+        targetSdk     = 36
         versionCode   = 5
-        versionName   = "1.0.3"
+        versionName   = "1.1.2"
     }
 
     buildTypes {
