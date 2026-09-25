@@ -4,12 +4,14 @@ on:
   push:
     tags:
       - 'v*' # 推送如 v1.0.0 標籤時觸發
+    paths:
+      - 'app/build.gradle.kts' # 當 build.gradle.kts 變更並 push 時自動觸發
   workflow_dispatch: # 支援手動觸發
     inputs:
       tag_name:
-        description: 'Release Tag (例如 v1.0.0)'
+        description: '自訂 Release Tag (留空則自動讀取 build.gradle.kts 的版本)'
         required: false
-        default: 'v1.0.0-draft'
+        default: ''
 
 permissions:
   contents: write # 建立 Release 需要寫入權限
@@ -21,6 +23,21 @@ jobs:
     steps:
       - name: 檢出專案代碼
         uses: actions/checkout@v4
+
+      - name: 解析版本號 (Tag)
+        id: resolve_tag
+        run: |
+          INPUT_TAG="${{ inputs.tag_name }}"
+          if [ -n "$INPUT_TAG" ]; then
+            TAG="$INPUT_TAG"
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            TAG="${{ github.ref_name }}"
+          else
+            VERSION=$(awk -F'"' '/versionName.*=/ {print $2}' app/build.gradle.kts)
+            TAG="v${VERSION}"
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "使用版本 Tag: $TAG"
 
       - name: 設定 JDK 環境
         uses: actions/setup-java@v4
@@ -44,7 +61,8 @@ jobs:
       - name: 建立 GitHub Release 並發布 APK
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.tag_name || github.ref_name }}
+          tag_name: ${{ steps.resolve_tag.outputs.tag }}
+          name: ${{ steps.resolve_tag.outputs.tag }}
           draft: true
           files: app/build/outputs/apk/debug/*.apk
           generate_release_notes: true
