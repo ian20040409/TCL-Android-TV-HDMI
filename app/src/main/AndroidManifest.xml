@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- 宣告此 App 相容 Leanback（TV）平台，不強制觸控螢幕 -->
     <uses-feature
         android:name="android.software.leanback"
         android:required="false" />
@@ -9,18 +9,48 @@
         android:name="android.hardware.touchscreen"
         android:required="false" />
 
+    <!-- 開機廣播權限（API 33 以下自動授予；API 33+ 安裝時自動批准） -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- Android 11+ (API 30+) Launcher 查詢所有已安裝 TV / 手機 App 必備權限 -->
+    <uses-permission
+        android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
+
+    <!-- 支援從 App 清單長按解除安裝應用程式 -->
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+
+    <queries>
+        <package android:name="com.tcl.settings" />
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+        </intent>
+    </queries>
+
     <application
         android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:banner="@drawable/tv_banner"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/Theme.TCLHdmiLauncher">
+        android:theme="@style/Theme.PureBlackDarkOnly">
 
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:theme="@style/Theme.TCLHdmiLauncher"
+            android:banner="@drawable/tv_banner"
+            android:icon="@mipmap/ic_launcher"
+            android:theme="@style/Theme.PureBlackDarkOnly"
             android:excludeFromRecents="true"
-            android:launchMode="singleTask">
+            android:launchMode="singleTask"
+            android:screenOrientation="landscape"
+            android:windowSoftInputMode="stateAlwaysHidden|adjustNothing">
 
             <!-- 作為 TV Leanback Launcher（遙控器 Home 鍵） -->
             <intent-filter android:priority="1">
@@ -36,6 +66,30 @@
             </intent-filter>
 
         </activity>
+
+        <!-- App 清單啟動器：無任何 intent-filter，只由 MainActivity 顯式呼叫 -->
+        <activity
+            android:name=".AppListActivity"
+            android:exported="false"
+            android:theme="@style/Theme.PureBlackDarkOnly"
+            android:screenOrientation="landscape"
+            android:windowSoftInputMode="stateAlwaysHidden|adjustNothing" />
+
+        <!-- 開機 / 睡眠喚醒自動啟動：零服務、零常駐 -->
+        <receiver
+            android:name=".BootAndWakeReceiver"
+            android:exported="true">
+            <intent-filter>
+                <!-- 系統完整開機 -->
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <!-- TCL / 高通快速開機路徑 -->
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <!-- 螢幕保護 / 待機結束 → TV 從睡眠喚醒 -->
+                <action android:name="android.intent.action.DREAMING_STOPPED" />
+            </intent-filter>
+        </receiver>
+
     </application>
 
 </manifest>
+

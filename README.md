@@ -1,59 +1,32 @@
-# TCL Android TV HDMI 3 Launcher
+# TCL Android TV HDMI 1 / 2 / 3 GUI Launcher
 
-> 極簡、零負載的 Android TV 首頁啟動器。  
-> 開機 / 按壓 Home 鍵時自動切換至 **HDMI 3**，切換後立即結束，不佔用任何常駐記憶體與 CPU。
-
----
-
-## 專案結構
-
-```
-TCL Android TV HDMI/
-├── app/
-│   ├── src/main/
-│   │   ├── AndroidManifest.xml
-│   │   ├── java/com/example/tclhdmilauncher/
-│   │   │   └── MainActivity.kt
-│   │   └── res/values/
-│   │       └── strings.xml
-│   ├── build.gradle.kts
-│   └── proguard-rules.pro
-├── gradle/
-│   ├── libs.versions.toml
-│   └── wrapper/
-│       ├── gradle-wrapper.jar
-│       └── gradle-wrapper.properties
-├── build.gradle.kts
-├── settings.gradle.kts
-└── .gitignore
-```
+> 專為 TCL Android TV 設計的極簡、零負載 HDMI 訊號源切換器與 Launcher。  
+> 提供美觀暗色電視大螢幕 GUI、右上角 TCL 原生設定快捷鍵 (`com.tcl.settings`)、高質感 HDMI 卡片與向量圖示，支援遙控器方向鍵焦點縮放、OK 鍵切換、長按設為開機預設，並內建 3 秒防誤觸倒數自動跳轉。
 
 ---
 
-## 實體裝置資訊
+## 實體裝置訊號源對照表（實測驗證）
 
-| 欄位 | 值 |
-|---|---|
-| 設備 | TCL Android TV (Google TV / Android TV) |
-| HDMI 3 Hardware ID | `1413744640` |
-| HDMI Port | `hdmi_port=3` |
-| 完整 TvInput ID | `com.tcl.tvinput/.passthroughinput.TvPassThroughService/HW1413744640` |
+| 訊號源 | Port | Hardware ID | 完整 TvInput ID |
+|---|---|---|---|
+| **HDMI 1** | 1 | `1413744128` | `com.tcl.tvinput/.passthroughinput.TvPassThroughService/HW1413744128` |
+| **HDMI 2** | 2 | `1413744384` | `com.tcl.tvinput/.passthroughinput.TvPassThroughService/HW1413744384` |
+| **HDMI 3** | 3 | `1413744640` | `com.tcl.tvinput/.passthroughinput.TvPassThroughService/HW1413744640` |
 
-### ADB 實測驗證指令
+### ADB 測試各訊號源切換
 
 ```bash
-# 取得 TV Input 資訊
-adb shell dumpsys tv_input
+# 切換 HDMI 1
+adb shell am start -a android.intent.action.VIEW \
+  -d "content://android.media.tv/passthrough/com.tcl.tvinput%2F.passthroughinput.TvPassThroughService%2FHW1413744128"
 
-# 直接測試 HDMI 3 切換（驗證 Intent 是否正確）
+# 切換 HDMI 2
+adb shell am start -a android.intent.action.VIEW \
+  -d "content://android.media.tv/passthrough/com.tcl.tvinput%2F.passthroughinput.TvPassThroughService%2FHW1413744384"
+
+# 切換 HDMI 3
 adb shell am start -a android.intent.action.VIEW \
   -d "content://android.media.tv/passthrough/com.tcl.tvinput%2F.passthroughinput.TvPassThroughService%2FHW1413744640"
-```
-
-**預期回應：**
-```
-Starting: Intent { act=android.intent.action.VIEW dat=content://android.media.tv/passthrough/... }
-Warning: Activity not started, intent has been delivered to currently running top-most instance.
 ```
 
 ---
@@ -82,7 +55,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 ```bash
 # 將本 App 設為預設 Launcher（Home）
-adb shell cmd package set-home-activity com.example.tclhdmilauncher/.MainActivity
+adb shell cmd package set-home-activity com.lnu.tclhdmilauncher/.MainActivity
 
 # 或透過偏好設定選取器觸發（部分 TV 需要）
 adb shell am start \
@@ -107,7 +80,7 @@ adb shell pm disable-user --user 0 <tcl.launcher.package.name>
 adb shell pm enable <tcl.launcher.package.name>
 
 # 清除預設 Launcher 設定，讓系統再次詢問
-adb shell cmd package clear-preferred-activities com.example.tclhdmilauncher
+adb shell cmd package clear-preferred-activities com.lnu.tclhdmilauncher
 ```
 
 ---
@@ -152,8 +125,9 @@ TvContract.buildChannelUriForPassthroughInput(HDMI3_INPUT_ID)
 | `compileSdk` | 35 |
 | AGP | 9.2.1 |
 | Gradle | 9.4.1 (相容 Android Studio 2026.1 / Java 25 JBR) |
-| 依賴 | 0 依賴（純 Android SDK 原生呼叫） |
-| 無 Compose | ✅ |
-| 無 Leanback UI | ✅ |
-| Release 混淆 | R8 fullMode + 資源瘦身 ✅ (APK 僅約 4.4KB) |
+| 依賴 | 0 依賴（100% Android SDK 原生呼叫） |
+| 主題限制 | **強制 Pure Black Dark Mode**（純黑 `#000000`，禁用 ForceDark） |
+| 按鈕樣式 | 原生 XML Rounded Corner Shape (20dp 圓角) |
+| Release 體積 | R8 fullMode 混淆後僅約 **9.0 KB** |
+| 記憶體開銷 | 進入立即響應，跳轉後呼叫 `finishAndRemoveTask()` 背景 0 常駐 |
 

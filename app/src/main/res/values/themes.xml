@@ -1,8 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.TCLHdmiLauncher" parent="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen">
-        <item name="android:windowBackground">#121620</item>
+    <!-- 強制鎖定純黑 Dark Mode 主題：
+         1. 視窗起手背景 (windowBackground) 即為純黑 #000000，冷啟動絕不閃現白底或灰底。
+         2. forceDarkAllowed=false，防止系統自動反轉顏色。
+         3. 繼承系統 DeviceDefault 全螢幕深色主題，0 外部庫依賴。 -->
+    <style name="Theme.PureBlackDarkOnly" parent="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen">
+        <item name="android:windowBackground">#000000</item>
+        <item name="android:colorBackground">#000000</item>
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:forceDarkAllowed">false</item>
+        <!-- 防止系統在冷啟動 / 切換時對視窗截圖並閃現預覽幀 -->
+        <item name="android:windowDisablePreview">true</item>
+        <!-- 確保不顯示 ActionBar title bar，減少一次 measure pass -->
         <item name="android:windowNoTitle">true</item>
-        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <!-- 關閉視窗轉場動畫：Activity 切換 0ms 瞬間完成，不觸發額外 GPU 合成幀 -->
+        <item name="android:windowAnimationStyle">@null</item>
     </style>
 </resources>

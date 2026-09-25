@@ -5,4 +5,4 @@
 -keep class android.media.tv.** { *; }
 
 # 保留 MainActivity（入口點）
--keep class com.example.tclhdmilauncher.MainActivity { *; }
+-keep class com.lnu.tclhdmilauncher.MainActivity { *; }
