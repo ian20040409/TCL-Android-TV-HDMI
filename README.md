@@ -1,189 +1,251 @@
 # TCL Android TV HDMI 1 / 2 / 3 GUI Launcher
 
-> 專為 TCL Android TV 設計的極簡、零負載 HDMI 訊號源切換器與 Launcher。  
-> 提供美觀暗色電視大螢幕 GUI、右上角 TCL 原生設定快捷鍵 (`com.tcl.settings`)、高質感 HDMI 卡片與向量圖示。  
-> **特色功能：**
-> - **遙控器數字鍵直達**：支援輸入 `1` / `2` / `3` 瞬間切換至對應 HDMI 訊號源。
-> - **選單按鍵自訂倒數**：按遙控器「選單鍵（MENU）」或右上角按鈕，可自訂開機/回首頁自動開啟訊號源的倒數秒數（支援關閉、1s、2s、3s 預設、5s、10s、15s、30s）。
-> - **流暢 TV 遙控體驗**：方向鍵焦點流暢縮放動畫、OK 鍵切換、長按 OK 鍵設為開機預設訊號源。
+<p align="left">
+  <b>English</b> | <a href="README_zh.md">繁體中文</a>
+</p>
+
+> **Designed specifically for enthusiasts and minimalists who treat their TCL Android TV as a pure external display / monitor.**  
+> Completely eliminate TCL's sluggish, ad-ridden stock launcher. Boot directly into your external devices (Apple TV 4K / PS5 / Android TV Box / Blu-ray Player) in sub-milliseconds, transforming your TV into a distraction-free, high-performance display!
 
 ---
 
-## 畫面截圖 (Screenshots)
+## Why This Project? (Core Pain Points & Use Cases)
 
-| 主畫面（HDMI 訊號源切換） | 倒數秒數設定對話框 |
+### Who Is This For?
+If any of the following describes your home theater setup, this launcher was built for you:
+- **External Input Purists**: You rely almost entirely on external high-performance hardware, and your TV's built-in Smart TV OS is merely a "panel driver":
+  - 🍏 **Apple TV 4K** — Primary platform for streaming, movies, and TV shows.
+  - 🎮 **PlayStation 5 (PS5) / Xbox Series X / Nintendo Switch** — Next-gen 4K HDR gaming.
+  - 📺 **Dedicated TV Boxes** (Chromecast with Google TV, NVIDIA Shield, Fire TV, etc.).
+  - 💿 **4K UHD Blu-ray / DVD Players** or **AV Receivers (eARC)**.
+- **Tired of Bloated & Ad-Heavy Stock Launchers**: The factory TCL launcher is slow to boot, clutters the screen with unwanted video recommendations, and consumes precious RAM and background CPU cycles.
+- **Want a True "Instant-On" Display Experience**: When you power on the TV, it should act like a traditional monitor or high-end display—automatically switching to your favorite input (e.g., Apple TV) within seconds without you ever having to touch a remote.
+- **Lightning-Fast Multi-Device Switching**: When switching between a gaming console (PS5) and a streaming box (Apple TV), you want instant switching at the press of a single remote number button (`1` / `2` / `3`), without navigating clunky input menus.
+
+---
+
+## Ideal Home Theater Setup Example
+
+```
+                 ┌─────────────────────────────────┐
+                 │     TCL 4K QLED / Mini-LED TV   │
+                 │      (Pure Monitor / Display)   │
+                 └────────────────┬────────────────┘
+                                  │
+      ┌───────────────────────────┼───────────────────────────┐
+      │                           │                           │
+  [ HDMI 1 ]                  [ HDMI 2 ]                  [ HDMI 3 (eARC) ]
+      │                           │                           │
+      ▼                           ▼                           ▼
+🎮 PlayStation 5            📺 Blu-ray Player / Switch    🍏 Apple TV 4K / AVR
+(Press remote "1" to switch) (Press remote "2" to switch)  (Default: Auto-boots in 3s)
+```
+
+- **Default Scenario**: On power-up, a 3-second countdown (customizable) automatically transitions straight into **HDMI 3 (Apple TV 4K)** with zero button presses required.
+- **Gaming Scenario**: When you're ready to game, press numeric key `1` on your remote to instantly switch to **HDMI 1 (PS5)**.
+- **Picture & Sound Calibration**: The top-right pill button takes you straight to native TCL Picture & Sound settings (`com.tcl.settings`) without ever displaying the TCL home screen.
+
+---
+
+## Key Highlights & Features
+
+1. **Auto-Switch Countdown on Boot / Home**:
+   - Customizable countdown timer: `Off`, `1s`, `2s`, `3s (Default)`, `5s`, `10s`, `15s`, `30s`.
+   - On TV startup or pressing the Home button, automatically switches to your designated default HDMI port once the timer expires.
+   - Touching any D-pad direction button during countdown cancels the timer, letting you browse inputs at your leisure.
+2. **Instant Remote Number Key Switching**:
+   - Press `1`, `2`, or `3` on your remote keypad to jump straight to the respective HDMI port with zero input lag.
+3. **Set Default Boot Input (Long-Press OK)**:
+   - Long-press the OK button on any HDMI card to set it as your persistent default startup input.
+4. **Ultra-Lightweight, Zero Background Services, Zero GC Pressure**:
+   - **Only ~9.0 KB** after full R8 minification and resource shrinking.
+   - Built 100% in code (0 XML layout inflation overhead, 0 reflection).
+   - Hot-path countdown timer achieves **0 heap memory allocations per second (0 GC)**.
+   - Immediately calls `finishAndRemoveTask()` upon switching, leaving **zero background resident memory**—giving 100% of TV chipset resources to 4K video and audio decoding.
+5. **Pure Black OLED / Dark Room Friendly UI (`#000000`)**:
+   - Eliminates blinding white flashes in dark home theater rooms and optimizes local dimming on QLED / Mini-LED panels.
+6. **Multi-Language Support**:
+   - Fully localized in English, Traditional Chinese (繁體中文), and Simplified Chinese (简体中文) based on your system locale.
+7. **Essential TV Features Preserved**:
+   - **TCL Settings Shortcut**: Single-click access to native TCL picture/audio adjustment pages.
+   - **Lightweight App Drawer**: An ultra-fast, on-demand list for occasional built-in or sideloaded TV apps with recents and long-press uninstall/disable management.
+
+---
+
+## Screenshots
+
+| Main Screen (HDMI Input Selector) | Countdown Timer Settings Dialog |
 |:---:|:---:|
-| ![主畫面](readme_pic/Screenshot_20260925_222244.png) | ![倒數設定](readme_pic/Screenshot_20260925_222304.png) |
-| **呼叫 TCL 原生設定** | **應用程式列表（App Drawer）** |
-| ![TCL 設定](readme_pic/Screenshot_20260925_222322.png) | ![應用程式列表](readme_pic/Screenshot_20260925_222344.png) |
-| **系統應用管理（長按 OK）** | **第三方應用管理（長按 OK）** |
-| ![系統應用管理](readme_pic/Screenshot_20260925_222413.png) | ![第三方應用管理](readme_pic/Screenshot_20260925_222455.png) |
+| ![Main Screen](readme_pic/Screenshot_20260925_222244.png) | ![Countdown Settings](readme_pic/Screenshot_20260925_222304.png) |
+| **Native TCL Settings Shortcut** | **App Drawer** |
+| ![TCL Settings](readme_pic/Screenshot_20260925_222322.png) | ![App Drawer](readme_pic/Screenshot_20260925_222344.png) |
+| **System App Management (Hold OK)** | **Third-Party App Management (Hold OK)** |
+| ![System App Management](readme_pic/Screenshot_20260925_222413.png) | ![Third-Party App Management](readme_pic/Screenshot_20260925_222455.png) |
 
 ---
 
-## 實測驗證裝置 (Tested Device)
+## Tested Device
 
-- **測試機型**：**TCL 65C715**（C715 系列 65 吋 4K QLED Android TV）
-- **機芯平台 (Chassis Platform)**：**RTD2851 / R851T02**（韌體版本識別前綴如 `V8-R851T02-LF1...`）
+- **Tested Model**: **TCL 65C715** (C715 Series 65" 4K QLED Android TV)
+- **Chassis Platform**: **RTD2851 / R851T02** (firmware version prefix such as `V8-R851T02-LF1...`)
   > [!NOTE]
-  > **關於 R851T02 平台：**  
-  > `R851T02` 是 TCL 廣泛應用於多款主力 Android TV（涵蓋 C715、P715、P615、S434 等系列）的晶片與軟硬體主機板架構平台（Realtek RTD2851 方案）。凡是搭載 **R851T02 機芯架構** 的機型，其底層電視訊號輸入服務（`com.tcl.tvinput`）與 Passthrough 直通架構規格均高度統一。
-- **機型規格摘要**：
-  - **螢幕面板**：65" 4K UHD (3840 × 2160) 量子點 QLED、60Hz、支援 Dolby Vision / HDR10+
-  - **HDMI 配置**：共 3 組實體 HDMI 2.0 端子（支援 HDCP 2.2、HDMI-ARC / CEC）
-  - **處理器與記憶體**：4 核心 ARM Cortex-A55 處理器、2 GB RAM / 16 GB ROM
-  - **系統環境**：Android TV 9.0 / Android TV 11
-  - **實測結果**：HDMI 1 ~ 3 訊號源微秒級切換、倒數計時自動跳轉、開機預設、遙控器按鍵（數字鍵/選單鍵/設定鍵）均 100% 驗證通過。
+  > **About the R851T02 Platform:**  
+  > `R851T02` is TCL's widely deployed chipset and motherboard hardware architecture (Realtek RTD2851 SoC) across multiple mainstream Android TV series (including C715, P715, P615, S434, etc.). All models running the **R851T02 chassis architecture** share a unified low-level TV input service (`com.tcl.tvinput`) and Passthrough pipeline specification.
+- **Hardware Specs**:
+  - **Display Panel**: 65" 4K UHD (3840 × 2160) Quantum Dot QLED, 60Hz, Dolby Vision / HDR10+ support
+  - **HDMI Ports**: 3 physical HDMI 2.0 ports (HDCP 2.2, HDMI-ARC / CEC supported)
+  - **CPU & Memory**: Quad-core ARM Cortex-A55 processor, 2 GB RAM / 16 GB ROM
+  - **System OS**: Android TV 9.0 / Android TV 11
+  - **Test Results**: Sub-millisecond HDMI 1 ~ 3 input switching, automatic countdown transition, boot default input persistence, remote controls (number keys / menu / settings) 100% verified.
 
-## 實體裝置訊號源對照表（R851T02 / C715 實測驗證）
+## Physical Device Input Mapping Table (R851T02 / C715 Tested)
 
-| 訊號源 | Port | Hardware ID | 完整 TvInput ID |
+| Input Source | Port | Hardware ID | Full TvInput ID |
 |---|---|---|---|
 | **HDMI 1** | 1 | `1413744128` | `com.tcl.tvinput/.passthroughinput.TvPassThroughService/HW1413744128` |
 | **HDMI 2** | 2 | `1413744384` | `com.tcl.tvinput/.passthroughinput.TvPassThroughService/HW1413744384` |
 | **HDMI 3** | 3 | `1413744640` | `com.tcl.tvinput/.passthroughinput.TvPassThroughService/HW1413744640` |
 
-### ADB 測試各訊號源切換
+### ADB Testing for Input Switching
 
 ```bash
-# 切換 HDMI 1
+# Switch to HDMI 1
 adb shell am start -a android.intent.action.VIEW \
   -d "content://android.media.tv/passthrough/com.tcl.tvinput%2F.passthroughinput.TvPassThroughService%2FHW1413744128"
 
-# 切換 HDMI 2
+# Switch to HDMI 2
 adb shell am start -a android.intent.action.VIEW \
   -d "content://android.media.tv/passthrough/com.tcl.tvinput%2F.passthroughinput.TvPassThroughService%2FHW1413744384"
 
-# 切換 HDMI 3
+# Switch to HDMI 3
 adb shell am start -a android.intent.action.VIEW \
   -d "content://android.media.tv/passthrough/com.tcl.tvinput%2F.passthroughinput.TvPassThroughService%2FHW1413744640"
 ```
 
 ---
 
-## HDMI 埠數偵測機制與架構設計
+## Remote Control Shortcuts
 
-### 1. 動態自動偵測方案（支援多機型擴展，TCL C715 / R851T02 完美支援）
-本架構支援透過 Android TV 原生標準 API [`TvInputManager`](https://developer.android.com/reference/android/media/tv/TvInputManager) 動態自動偵測實體 HDMI 數量與訊號源 ID。**實測確認 TCL C715 及所有採用 R851T02 機芯平台的電視系列完全支援此機制**，能自動精準識別其實體 HDMI 硬體識別碼。
-
-```kotlin
-val tvInputManager = getSystemService(Context.TV_INPUT_SERVICE) as TvInputManager
-// 自動篩選出目前電視所有實體 HDMI 訊號源（TCL C715 / R851T02 實測可精準讀取 3 組 HW Passthrough ID）
-val hdmiInputs = tvInputManager.tvInputList.filter { it.type == TvInputInfo.TYPE_HDMI }
-```
-
-**此方案具備以下優勢：**
-1. **TCL C715 / R851T02 實機即時支援**：在 TCL 65C715 (R851T02 機芯) 實機上可 100% 正確獲取對應的 3 個 HDMI Passthrough 訊號源 ID，無縫相容。
-2. **自動判斷埠數**：透過 `hdmiInputs.size` 動態得知電視具備幾個實體 HDMI 埠（無論是 2 埠、3 埠或 4 埠機型皆可自動適配）。
-3. **自動取得 Input ID**：透過 `input.id` 自動取得各廠牌/機型實際硬體訊號源識別碼，免去手動透過 ADB `dumpsys tv_input` 撈取與寫死 ID。
-4. **動態渲染介面**：根據系統偵測到的埠數動態生成對應卡片與遙控器焦點導覽路線。
-
-### 2. 現狀機制（靜態固定 3 埠極速模式）
-- **目前設計**：現行版本預設採用靜態鎖定 **3 個 HDMI 埠（HDMI 1 ~ 3）**，並對應 TCL 65C715 (R851T02) 實機的 Hardware Passthrough ID（`HW1413744128`、`HW1413744384`、`HW1413744640`）。
-- **設計考量**：
-  - **極致冷啟動速度**：針對 TCL C715 (R851T02) 消除向系統 `TvInputManager` 跨行程 IPC 查詢的開銷（開機冷啟動可節省約 300~400ms）。
-  - **零 GC 與微秒級派發**：所有 Intent、URI、字串與卡片 View 均在編譯期或啟動初期完成靜態配置，避免倒數計時與跳轉時發生記憶體抖動。
+| Remote Button | Action & Behavior |
+|---|---|
+| **D-Pad (Arrows)** | Move card focus; pressing any arrow key during countdown **cancels auto-switch** |
+| **OK / Enter** | Switch immediately to the currently focused HDMI input |
+| **Long-Press OK** | Set the currently focused HDMI port as the **default startup input** |
+| **Number Keys `1` / `2` / `3`** | **Instant Switch**: Jump straight to HDMI 1 / 2 / 3 regardless of current focus |
+| **MENU** | Open the "Auto-Switch Countdown Timer" configuration dialog |
+| **SETTINGS** | Instantly launch native TCL settings (`com.tcl.settings`) |
+| **BACK** | Exit dialogs or return to launcher main view |
 
 ---
 
-## 建置與部署
+## Installation & Setup Guide
 
-### 1. 建置 Debug APK
+### Step 1: Build the APK
 
 ```bash
+# Build Debug APK
 ./gradlew assembleDebug
+
+# Or build ultra-optimized Release APK (~9.0 KB)
+./gradlew assembleRelease
 ```
 
-APK 輸出路徑：`app/build/outputs/apk/debug/app-debug.apk`
-
-### 2. 安裝至 TCL TV
+### Step 2: Enable ADB on Your TCL TV & Install
+1. On your TCL TV, open System Settings -> "About" -> click "Build Number" 7 times to enable Developer Options.
+2. In "Developer Options", enable "USB Debugging" or "Network Debugging".
+3. Connect your computer to your TV over ADB:
 
 ```bash
-# 確認裝置已連線（USB 或 Wi-Fi ADB）
-adb devices
+# Connect to your TV's IP address
+adb connect 192.168.1.xxx:5555
 
-# 安裝 APK
+# Install the APK
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-### 3. 設為預設 TV Launcher
+### Step 3: Set as Default TV Launcher
 
 ```bash
-# 將本 App 設為預設 Launcher（Home）
+# Set this app as the default Home launcher
 adb shell cmd package set-home-activity com.lnu.tclhdmilauncher/.MainActivity
-
-# 或透過偏好設定選取器觸發（部分 TV 需要）
-adb shell am start \
-  -a android.intent.action.MAIN \
-  -c android.intent.category.HOME
 ```
+*Pressing the remote's "Home" button will now open this clean HDMI launcher.*
 
-### 4. 停用 TCL 原生 Launcher（謹慎使用）
+### Step 4: Disable the Bloated TCL Stock Launcher (Optional, Recommended)
+To completely prevent the factory launcher from running or waking in the background:
 
 ```bash
-# 查詢 TCL 內建 Launcher 的套件名稱
+# 1. Find TCL factory launcher package name
 adb shell pm list packages | grep -i launcher
 
-# 停用（非解除安裝，可還原）
+# 2. Disable the stock launcher (safe and reversible)
 adb shell pm disable-user --user 0 <tcl.launcher.package.name>
 ```
 
-### 5. 還原原生 Launcher
-
-```bash
-# 重新啟用 TCL 原生 Launcher
-adb shell pm enable <tcl.launcher.package.name>
-
-# 清除預設 Launcher 設定，讓系統再次詢問
-adb shell cmd package clear-preferred-activities com.lnu.tclhdmilauncher
-```
+> [!TIP]
+> **Completely Reversible:**  
+> If you ever want to restore the factory TCL launcher, simply run:
+> ```bash
+> adb shell pm enable <tcl.launcher.package.name>
+> adb shell cmd package clear-preferred-activities com.lnu.tclhdmilauncher
+> ```
 
 ---
 
-## 運作原理
+## How It Works
 
 ```
-開機 / Home 鍵
-      │
-      ▼
-MainActivity.onCreate()
-      │
-      ▼
-TvContract.buildChannelUriForPassthroughInput(HDMI3_INPUT_ID)
-      │
-      ├─ 成功 ──► startActivity(Intent(ACTION_VIEW, uri)) ──► finishAndRemoveTask()
-      │
-      └─ 失敗（冷開機底層未就緒）
-            │
-            ▼
-        Handler.postDelayed(1500ms)
-            │
-            ▼
-        重試切換 ──► finishAndRemoveTask()
+TV Power-On / Sleep Wake / Home Button
+                │
+                ▼
+      MainActivity.onCreate()
+                │
+        ┌───────┴───────┐
+        ▼               ▼
+   [Unattended]    [User Action]
+        │               │
+  Timer expires    Press 1/2/3 or OK
+        │               │
+        └───────┬───────┘
+                │
+                ▼
+TvContract.buildChannelUriForPassthroughInput(HDMI_INPUT_ID)
+                │
+                ├─ Success ──► startActivity(Intent(ACTION_VIEW, uri))
+                │               │
+                │               ▼
+                │          finishAndRemoveTask()
+                │       (Memory 100% freed, 0 background footprint)
+                │
+                └─ Hardware cold boot not ready
+                        │
+                        ▼
+                    Handler.postDelayed(1500ms)
+                        │
+                        ▼
+                    Retry switch to HDMI
 ```
 
-**關鍵設計原則：**
-- `Theme.NoDisplay` — 無畫面主題，避免黑色閃爍
-- `finishAndRemoveTask()` — 切換後徹底移除 Task，不留後台痕跡
-- `excludeFromRecents="true"` — 不出現在最近使用清單
-- `singleTask` — 防止重複堆疊 Activity 實例
-- Handler 非阻塞重試 — 冷開機容錯，不卡主執行緒
+**Architectural Principles:**
+- `finishAndRemoveTask()` — Activity exits completely upon switching, freeing 100% memory.
+- `excludeFromRecents="true"` — Prevents cluttering recent apps.
+- `singleTask` — Avoids duplicate Activity stack creation.
+- Non-blocking Handler retry — Built-in fault tolerance while system TV services initialize on cold boot.
 
 ---
 
-## 技術規格
+## Technical Specifications
 
-| 項目 | 值 |
+| Parameter | Value |
 |---|---|
-| 版本 | v1.0.3 (`versionCode 5`) |
+| Version | v1.0.3 (`versionCode 5`) |
 | `minSdk` | 25 (Android 7.1) |
 | `targetSdk` | 37 |
 | `compileSdk` | 37 |
 | AGP | 9.2.1 |
-| Gradle | 9.4.1 (相容 Android Studio 2026.1 / Java 25 JBR) |
-| 依賴 | 0 依賴（100% Android SDK 原生呼叫） |
-| 主題限制 | **強制 Pure Black Dark Mode**（純黑 `#000000`，禁用 ForceDark） |
-| 按鈕樣式 | 原生 XML Rounded Corner Shape (20dp 圓角) |
-| Release 體積 | R8 fullMode 混淆後僅約 **9.0 KB** |
-| 記憶體開銷 | 進入立即響應，跳轉後呼叫 `finishAndRemoveTask()` 背景 0 常駐 |
-
+| Gradle | 9.4.1 (Java 25 JBR / Android Studio Ladybug+) |
+| Dependencies | **0 external dependencies** (100% native Android SDK) |
+| Theme Design | **Pure Black (`#000000`)**, ForceDark disabled |
+| Localization | English, Traditional Chinese (繁體中文), Simplified Chinese (简体中文) |
+| Release APK Size | Only **~9.0 KB** after R8 fullMode optimization |
+| Resident Memory | **0 MB** (Task self-terminates via `finishAndRemoveTask()`) |

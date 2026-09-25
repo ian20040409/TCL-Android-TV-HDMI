@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">HDMI Launcher</string>
+    <string name="brand_name">TCL TV HDMI</string>
+    <string name="main_title">HDMI 信号源切换</string>
+    <string name="btn_countdown_off">倒计时: 关闭</string>
+    <string name="btn_countdown_seconds">倒计时: %d秒</string>
+    <string name="btn_tcl_settings">TCL 设置</string>
+    <string name="btn_apps">应用程序</string>
+    <string name="card_default_badge">● 默认</string>
+    <string name="bottom_hint">[OK] 立即切换   •   [1 / 2 / 3] 直达信号   •   [菜单] 倒计时设置   •   [长按 OK] 设为默认</string>
+    <string name="countdown_active">%1$d 秒后自动进入 HDMI %2$d（按方向键取消）</string>
+    <string name="text_cancelled">请选择信号源（长按 OK 可设为默认）</string>
+    <string name="countdown_disabled">自动切换已关闭（默认 HDMI %d）</string>
+    <string name="msg_set_default">已将 HDMI %d 设为默认信号源</string>
+    <string name="toast_set_default">已设 HDMI %d 为默认</string>
+    <string name="toast_error_open_settings">无法打开系统设置</string>
+    <string name="toast_switching_hdmi">切换至 HDMI %d</string>
+    <string name="toast_hdmi_range_error">本设备仅支持 HDMI 1 ~ 3</string>
+    <string name="toast_switch_failed">切换 HDMI %d 失败</string>
+    <string name="dialog_countdown_title">自动切换信号源倒计时秒数</string>
+    <string name="dialog_option_off">关闭（不自动切换）</string>
+    <string name="dialog_option_1s">1 秒</string>
+    <string name="dialog_option_2s">2 秒</string>
+    <string name="dialog_option_3s_default">3 秒（默认）</string>
+    <string name="dialog_option_5s">5 秒</string>
+    <string name="dialog_option_10s">10 秒</string>
+    <string name="dialog_option_15s">15 秒</string>
+    <string name="dialog_option_30s">30 秒</string>
+    <string name="toast_countdown_off">已关闭自动切换信号源</string>
+    <string name="toast_countdown_set">倒计时秒数已设为 %d 秒</string>
+    <string name="dialog_cancel">取消</string>
+
+    <!-- App Drawer (AppListActivity) -->
+    <string name="app_list_title">应用程序</string>
+    <string name="app_list_hint">[OK] 启动  •  [长按 OK] 更多选项  •  [返回] 返回上一页</string>
+    <string name="app_list_empty">未找到可启动的应用程序</string>
+    <string name="section_recent">最近使用  (%d)</string>
+    <string name="section_tv_apps">TV 应用程序  (%d)</string>
+    <string name="section_mobile_apps">手机 App  (%d)</string>
+    <string name="section_system_apps">系统应用程序  (%d)</string>
+    <string name="menu_open">打开应用程序</string>
+    <string name="menu_uninstall">卸载</string>
+    <string name="menu_disable">停用应用程序</string>
+    <string name="menu_app_info">应用信息</string>
+    <string name="toast_cannot_launch">无法启动 %s</string>
+    <string name="toast_disable_hint">请在设置页面点击“停用”</string>
+</resources>

@@ -230,19 +230,19 @@ class AppListActivity : Activity() {
                 recentApps.size + tvUserApps.size + mobileUserApps.size + systemApps.size + 4
             )
             if (recentApps.isNotEmpty()) {
-                result.add(ListItem.Section("最近使用  (${recentApps.size})"))
+                result.add(ListItem.Section(getString(R.string.section_recent, recentApps.size)))
                 result.addAll(recentApps)
             }
             if (tvUserApps.isNotEmpty()) {
-                result.add(ListItem.Section("TV 應用程式  (${tvUserApps.size})"))
+                result.add(ListItem.Section(getString(R.string.section_tv_apps, tvUserApps.size)))
                 result.addAll(tvUserApps)
             }
             if (mobileUserApps.isNotEmpty()) {
-                result.add(ListItem.Section("手機 App  (${mobileUserApps.size})"))
+                result.add(ListItem.Section(getString(R.string.section_mobile_apps, mobileUserApps.size)))
                 result.addAll(mobileUserApps)
             }
             if (systemApps.isNotEmpty()) {
-                result.add(ListItem.Section("系統應用程式  (${systemApps.size})"))
+                result.add(ListItem.Section(getString(R.string.section_system_apps, systemApps.size)))
                 result.addAll(systemApps)
             }
 
@@ -312,20 +312,20 @@ class AppListActivity : Activity() {
 
     private fun showAppMenu(app: ListItem.App) {
         val options = ArrayList<MenuOption>(4).apply {
-            add(MenuOption("開啟應用程式", R.drawable.open_in_new_48px, 0xFF38BDF8.toInt()) {
+            add(MenuOption(getString(R.string.menu_open), R.drawable.open_in_new_48px, 0xFF38BDF8.toInt()) {
                 launchApp(app)
             })
             if (!app.isSystem) {
-                add(MenuOption("解除安裝", R.drawable.delete_48px, 0xFFF87171.toInt()) {
+                add(MenuOption(getString(R.string.menu_uninstall), R.drawable.delete_48px, 0xFFF87171.toInt()) {
                     uninstallApp(app)
                 })
             }
             if (app.isDisableable) {
-                add(MenuOption("停用應用程式", R.drawable.settings_48px, 0xFFFBBF24.toInt()) {
+                add(MenuOption(getString(R.string.menu_disable), R.drawable.settings_48px, 0xFFFBBF24.toInt()) {
                     disableApp(app)
                 })
             }
-            add(MenuOption("應用程式資訊", R.drawable.info_48px, 0xFF94A3B8.toInt()) {
+            add(MenuOption(getString(R.string.menu_app_info), R.drawable.info_48px, 0xFF94A3B8.toInt()) {
                 openAppInfo(app)
             })
         }
@@ -382,7 +382,7 @@ class AppListActivity : Activity() {
             .setAdapter(menuAdapter) { _, which ->
                 options[which].action()
             }
-            .setNegativeButton("取消", null)
+            .setNegativeButton(getString(R.string.dialog_cancel), null)
             .show()
     }
 
@@ -421,10 +421,10 @@ class AppListActivity : Activity() {
                     fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     startActivity(fallback)
                 } catch (_: Exception) {
-                    Toast.makeText(this, "無法啟動 ${app.label}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, getString(R.string.toast_cannot_launch, app.label), Toast.LENGTH_SHORT).show()
                 }
             } else {
-                Toast.makeText(this, "無法啟動 ${app.label}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, getString(R.string.toast_cannot_launch, app.label), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -435,7 +435,7 @@ class AppListActivity : Activity() {
 
     private fun disableApp(app: ListItem.App) {
         openAppInfo(app)
-        Toast.makeText(this, "請在設定頁面點擊「停用」", Toast.LENGTH_LONG).show()
+        Toast.makeText(this, getString(R.string.toast_disable_hint), Toast.LENGTH_LONG).show()
     }
 
     private fun openAppInfo(app: ListItem.App) {
@@ -487,7 +487,7 @@ class AppListActivity : Activity() {
             rightMargin = dp(12f)
         })
         val tvTitle = TextView(this).apply {
-            text = "應用程式"
+            text = getString(R.string.app_list_title)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 28f)
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(0xFFF8FAFC.toInt())
@@ -496,7 +496,7 @@ class AppListActivity : Activity() {
         header.addView(titleBox, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
 
         val tvHint = TextView(this).apply {
-            text = "[OK] 啟動  •  [長按 OK] 更多選項  •  [返回] 回上頁"
+            text = getString(R.string.app_list_hint)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
             setTextColor(0xFF475569.toInt())
         }
@@ -520,7 +520,7 @@ class AppListActivity : Activity() {
 
         // 空清單提示
         tvEmpty = TextView(this).apply {
-            text = "沒有找到可啟動的應用程式"
+            text = getString(R.string.app_list_empty)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
             setTextColor(0xFF64748B.toInt())
             gravity = Gravity.CENTER

@@ -69,21 +69,15 @@ class MainActivity : Activity(), View.OnClickListener, View.OnFocusChangeListene
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
 
-        // 熱路徑字串快取：預先建構 1..30 秒對應各 HDMI 埠的提示文字（Hot Path 0 GC）
-        private val COUNTDOWN_TEXT_CACHE = Array(4) { port ->
-            Array(31) { sec ->
-                "${sec} 秒後自動進入 HDMI $port（按方向鍵取消）"
-            }
-        }
-        private const val TEXT_CANCELLED = "請選擇訊號源（長按 OK 可設為預設）"
-        private val TEXT_DISABLED_CACHE = Array(4) { port ->
-            "自動開啟已關閉（預設 HDMI $port）"
-        }
-
         // 記憶體持久化快取，消除主執行緒重複讀取磁碟 XML
         private var cachedDefaultPort: Int? = null
         private var cachedCountdownSeconds: Int? = null
     }
+
+    // 熱路徑字串快取：預先建構 1..30 秒對應各 HDMI 埠的提示文字（Hot Path 0 GC）
+    private lateinit var countdownTextCache: Array<Array<String>>
+    private lateinit var textCancelled: String
+    private lateinit var textDisabledCache: Array<String>
 
     private lateinit var tvCountdown: TextView
     private lateinit var cardHdmi1: LinearLayout
@@ -125,6 +119,7 @@ class MainActivity : Activity(), View.OnClickListener, View.OnFocusChangeListene
         super.onCreate(savedInstanceState)
 
         loadPreferencesFromCache()
+        initTextCaches()
         secondsLeft = countdownDuration
 
         setContentView(buildContentView())
@@ -230,8 +225,24 @@ class MainActivity : Activity(), View.OnClickListener, View.OnFocusChangeListene
         updateCountdownButtonLabel()
     }
 
+    private fun initTextCaches() {
+        textCancelled = getString(R.string.text_cancelled)
+        textDisabledCache = Array(4) { port ->
+            getString(R.string.countdown_disabled, port)
+        }
+        countdownTextCache = Array(4) { port ->
+            Array(31) { sec ->
+                getString(R.string.countdown_active, sec, port)
+            }
+        }
+    }
+
     private fun updateCountdownButtonLabel() {
-        tvCountdownBtnLabel.text = if (countdownDuration <= 0) "倒數: 關閉" else "倒數: ${countdownDuration}秒"
+        tvCountdownBtnLabel.text = if (countdownDuration <= 0) {
+            getString(R.string.btn_countdown_off)
+        } else {
+            getString(R.string.btn_countdown_seconds, countdownDuration)
+        }
     }
 
     /**
@@ -239,16 +250,16 @@ class MainActivity : Activity(), View.OnClickListener, View.OnFocusChangeListene
      */
     private fun updateCountdownText() {
         if (isCancelled) {
-            tvCountdown.text = TEXT_CANCELLED
+            tvCountdown.text = textCancelled
         } else if (countdownDuration <= 0) {
-            tvCountdown.text = TEXT_DISABLED_CACHE.getOrElse(defaultPort) { TEXT_DISABLED_CACHE[3] }
+            tvCountdown.text = textDisabledCache.getOrElse(defaultPort) { textDisabledCache[3] }
         } else {
             val port = if (defaultPort in 1..3) defaultPort else 3
             val sec = if (secondsLeft in 1..30) secondsLeft else 0
             if (sec > 0) {
-                tvCountdown.text = COUNTDOWN_TEXT_CACHE[port][sec]
+                tvCountdown.text = countdownTextCache[port][sec]
             } else {
-                tvCountdown.text = TEXT_CANCELLED
+                tvCountdown.text = textCancelled
             }
         }
     }
@@ -260,8 +271,8 @@ class MainActivity : Activity(), View.OnClickListener, View.OnFocusChangeListene
             .putInt(KEY_DEFAULT_PORT, port).apply()
         updateButtonLabels()
         cancelTimer()
-        tvCountdown.text = "已將 HDMI $port 設為預設訊號源"
-        Toast.makeText(this, "已設 HDMI $port 為預設", Toast.LENGTH_SHORT).show()
+        tvCountdown.text = getString(R.string.msg_set_default, port)
+        Toast.makeText(this, getString(R.string.toast_set_default, port), Toast.LENGTH_SHORT).show()
     }
 
     private fun launchTclSettings() {
@@ -291,7 +302,7 @@ class MainActivity : Activity(), View.OnClickListener, View.OnFocusChangeListene
             }
         }
 
-        Toast.makeText(this, "無法開啟系統設定", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, getString(R.string.toast_error_open_settings), Toast.LENGTH_SHORT).show()
     }
 
     private fun pauseTimer() {
@@ -352,10 +363,10 @@ class MainActivity : Activity(), View.OnClickListener, View.OnFocusChangeListene
                         2 -> cardHdmi2.requestFocus()
                         3 -> cardHdmi3.requestFocus()
                     }
-                    Toast.makeText(this, "切換至 HDMI $pressedPort", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, getString(R.string.toast_switching_hdmi, pressedPort), Toast.LENGTH_SHORT).show()
                     switchTo(pressedPort, fromTimer = false)
                 } else {
-                    Toast.makeText(this, "本裝置僅支援 HDMI 1 ~ 3", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, getString(R.string.toast_hdmi_range_error), Toast.LENGTH_SHORT).show()
                 }
                 return true
             }
@@ -380,7 +391,7 @@ class MainActivity : Activity(), View.OnClickListener, View.OnFocusChangeListene
                     KeyEvent.KEYCODE_DPAD_LEFT,
                     KeyEvent.KEYCODE_DPAD_RIGHT -> {
                         cancelTimer()
-                        tvCountdown.text = TEXT_CANCELLED
+                        tvCountdown.text = textCancelled
                     }
                 }
             }
@@ -400,8 +411,8 @@ class MainActivity : Activity(), View.OnClickListener, View.OnFocusChangeListene
         try {
             startActivity(intent)
         } catch (e: Exception) {
-            Log.e(TAG, "切換失敗: ${e.message}")
-            Toast.makeText(this, "切換 HDMI $port 失敗", Toast.LENGTH_SHORT).show()
+            Log.e(TAG, "Switch failed: ${e.message}")
+            Toast.makeText(this, getString(R.string.toast_switch_failed, port), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -413,14 +424,14 @@ class MainActivity : Activity(), View.OnClickListener, View.OnFocusChangeListene
         pauseTimer()
 
         val secondsOptions = listOf(
-            0 to "關閉（不自動開啟）",
-            1 to "1 秒",
-            2 to "2 秒",
-            3 to "3 秒（預設）",
-            5 to "5 秒",
-            10 to "10 秒",
-            15 to "15 秒",
-            30 to "30 秒"
+            0 to getString(R.string.dialog_option_off),
+            1 to getString(R.string.dialog_option_1s),
+            2 to getString(R.string.dialog_option_2s),
+            3 to getString(R.string.dialog_option_3s_default),
+            5 to getString(R.string.dialog_option_5s),
+            10 to getString(R.string.dialog_option_10s),
+            15 to getString(R.string.dialog_option_15s),
+            30 to getString(R.string.dialog_option_30s)
         )
 
         val labels = secondsOptions.map { it.second }.toTypedArray()
@@ -429,13 +440,13 @@ class MainActivity : Activity(), View.OnClickListener, View.OnFocusChangeListene
         }
 
         val dialog = AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-            .setTitle("自動開啟訊號源倒數秒數")
+            .setTitle(getString(R.string.dialog_countdown_title))
             .setSingleChoiceItems(labels, currentIndex) { d, which ->
                 val selectedSeconds = secondsOptions[which].first
                 saveCountdownSeconds(selectedSeconds)
                 d.dismiss()
             }
-            .setNegativeButton("取消") { d, _ ->
+            .setNegativeButton(getString(R.string.dialog_cancel)) { d, _ ->
                 d.dismiss()
             }
             .create()
@@ -463,13 +474,13 @@ class MainActivity : Activity(), View.OnClickListener, View.OnFocusChangeListene
 
         if (seconds <= 0) {
             cancelTimer()
-            tvCountdown.text = TEXT_DISABLED_CACHE.getOrElse(defaultPort) { TEXT_DISABLED_CACHE[3] }
-            Toast.makeText(this, "已關閉自動開啟訊號源", Toast.LENGTH_SHORT).show()
+            tvCountdown.text = textDisabledCache.getOrElse(defaultPort) { textDisabledCache[3] }
+            Toast.makeText(this, getString(R.string.toast_countdown_off), Toast.LENGTH_SHORT).show()
         } else {
             secondsLeft = seconds
             isCancelled = false
             updateCountdownText()
-            Toast.makeText(this, "倒數秒數已設為 $seconds 秒", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.toast_countdown_set, seconds), Toast.LENGTH_SHORT).show()
             if (isActivityResumed && hasWindowFocus()) {
                 resumeTimerIfOnMainScreen()
             }
@@ -579,9 +590,14 @@ class MainActivity : Activity(), View.OnClickListener, View.OnFocusChangeListene
         topBar.addView(spacerTop, LinearLayout.LayoutParams(0, 0, 1f))
 
         // 倒數按鈕
+        val initialCountdownLabel = if (countdownDuration <= 0) {
+            getString(R.string.btn_countdown_off)
+        } else {
+            getString(R.string.btn_countdown_seconds, countdownDuration)
+        }
         val (btnCount, tvCountLabel) = createPillButton(
             iconRes = R.drawable.info_48px,
-            label = if (countdownDuration <= 0) "倒數: 關閉" else "倒數: ${countdownDuration}秒",
+            label = initialCountdownLabel,
             density = density
         )
         btnCountdown = btnCount
@@ -593,7 +609,7 @@ class MainActivity : Activity(), View.OnClickListener, View.OnFocusChangeListene
         // TCL 設定按鈕
         btnSettings = createPillButton(
             iconRes = R.drawable.settings_48px,
-            label = "TCL 設定",
+            label = getString(R.string.btn_tcl_settings),
             density = density
         ).first
         topBar.addView(btnSettings, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
@@ -610,7 +626,7 @@ class MainActivity : Activity(), View.OnClickListener, View.OnFocusChangeListene
 
         // 主標題
         val tvTitle = TextView(this).apply {
-            text = "HDMI 訊號源切換"
+            text = getString(R.string.main_title)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 30f)
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(0xFFF8FAFC.toInt())
@@ -669,7 +685,7 @@ class MainActivity : Activity(), View.OnClickListener, View.OnFocusChangeListene
         // 應用程式快捷按鈕
         btnApps = createPillButton(
             iconRes = R.drawable.apps_48px,
-            label = "應用程式",
+            label = getString(R.string.btn_apps),
             density = density
         ).first
         centerContainer.addView(btnApps, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
@@ -680,7 +696,7 @@ class MainActivity : Activity(), View.OnClickListener, View.OnFocusChangeListene
 
         // ── 3. 底部操作說明 ───────────────────────────────────────────────────
         val tvHint = TextView(this).apply {
-            text = "[OK] 立即切換   •   [1 / 2 / 3] 直達訊號   •   [選單] 倒數設定   •   [長按 OK] 設為預設"
+            text = getString(R.string.bottom_hint)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
             setTextColor(0xFF475569.toInt())
         }
@@ -720,7 +736,7 @@ class MainActivity : Activity(), View.OnClickListener, View.OnFocusChangeListene
         }
 
         val tvBadge = TextView(this).apply {
-            text = "● 預設"
+            text = getString(R.string.card_default_badge)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(0xFF38BDF8.toInt())

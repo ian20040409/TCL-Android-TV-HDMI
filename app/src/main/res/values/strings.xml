@@ -1,4 +1,48 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">HDMI Launcher</string>
+    <string name="brand_name">TCL TV HDMI</string>
+    <string name="main_title">HDMI Input Selector</string>
+    <string name="btn_countdown_off">Countdown: Off</string>
+    <string name="btn_countdown_seconds">Countdown: %ds</string>
+    <string name="btn_tcl_settings">TCL Settings</string>
+    <string name="btn_apps">Apps</string>
+    <string name="card_default_badge">● Default</string>
+    <string name="bottom_hint">[OK] Switch   •   [1 / 2 / 3] Direct Input   •   [Menu] Timer Settings   •   [Hold OK] Set Default</string>
+    <string name="countdown_active">Switching to HDMI %2$d in %1$ds (Press D-pad to cancel)</string>
+    <string name="text_cancelled">Select an input (Long-press OK to set default)</string>
+    <string name="countdown_disabled">Auto-switch disabled (Default HDMI %d)</string>
+    <string name="msg_set_default">HDMI %d set as default input</string>
+    <string name="toast_set_default">HDMI %d set as default</string>
+    <string name="toast_error_open_settings">Unable to open system settings</string>
+    <string name="toast_switching_hdmi">Switching to HDMI %d</string>
+    <string name="toast_hdmi_range_error">Only HDMI 1 ~ 3 are supported on this device</string>
+    <string name="toast_switch_failed">Failed to switch to HDMI %d</string>
+    <string name="dialog_countdown_title">Auto-Switch Countdown Timer</string>
+    <string name="dialog_option_off">Off (Do not auto-switch)</string>
+    <string name="dialog_option_1s">1 second</string>
+    <string name="dialog_option_2s">2 seconds</string>
+    <string name="dialog_option_3s_default">3 seconds (Default)</string>
+    <string name="dialog_option_5s">5 seconds</string>
+    <string name="dialog_option_10s">10 seconds</string>
+    <string name="dialog_option_15s">15 seconds</string>
+    <string name="dialog_option_30s">30 seconds</string>
+    <string name="toast_countdown_off">Auto-switch disabled</string>
+    <string name="toast_countdown_set">Countdown set to %d seconds</string>
+    <string name="dialog_cancel">Cancel</string>
+
+    <!-- App Drawer (AppListActivity) -->
+    <string name="app_list_title">Applications</string>
+    <string name="app_list_hint">[OK] Open  •  [Hold OK] More Options  •  [Back] Return</string>
+    <string name="app_list_empty">No launchable applications found</string>
+    <string name="section_recent">Recently Used (%d)</string>
+    <string name="section_tv_apps">TV Apps (%d)</string>
+    <string name="section_mobile_apps">Sideloaded / Mobile Apps (%d)</string>
+    <string name="section_system_apps">System Apps (%d)</string>
+    <string name="menu_open">Open Application</string>
+    <string name="menu_uninstall">Uninstall</string>
+    <string name="menu_disable">Disable Application</string>
+    <string name="menu_app_info">App Info</string>
+    <string name="toast_cannot_launch">Unable to launch %s</string>
+    <string name="toast_disable_hint">Please tap \"Disable\" in settings</string>
 </resources>
