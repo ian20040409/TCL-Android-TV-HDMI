@@ -13,6 +13,7 @@
 
 ### Who Is This For?
 If any of the following describes your home theater setup, this launcher was built for you:
+- **TCL Android TV / Google TV Users**: You own a TCL Smart TV and want an ultra-fast, bloatware-free launcher tailored specifically to TCL's native display and TV input framework (`com.tcl.tvinput`).
 - **External Input Purists**: You rely almost entirely on external high-performance hardware, and your TV's built-in Smart TV OS is merely a "panel driver":
   - 🍏 **Apple TV 4K** — Primary platform for streaming, movies, and TV shows.
   - 🎮 **PlayStation 5 (PS5) / Xbox Series X / Nintendo Switch** — Next-gen 4K HDR gaming.
