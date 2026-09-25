@@ -9,6 +9,18 @@
 
 ---
 
+## 畫面截圖 (Screenshots)
+
+| 主畫面（HDMI 訊號源切換） | 倒數秒數設定對話框 |
+|:---:|:---:|
+| ![主畫面](readme_pic/Screenshot_20260925_222244.png) | ![倒數設定](readme_pic/Screenshot_20260925_222304.png) |
+| **呼叫 TCL 原生設定** | **應用程式列表（App Drawer）** |
+| ![TCL 設定](readme_pic/Screenshot_20260925_222322.png) | ![應用程式列表](readme_pic/Screenshot_20260925_222344.png) |
+| **系統應用管理（長按 OK）** | **第三方應用管理（長按 OK）** |
+| ![系統應用管理](readme_pic/Screenshot_20260925_222413.png) | ![第三方應用管理](readme_pic/Screenshot_20260925_222455.png) |
+
+---
+
 ## 實測驗證裝置 (Tested Device)
 
 - **測試機型**：**TCL 65C715**（C715 系列 65 吋 4K QLED Android TV）
