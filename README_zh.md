@@ -1,4 +1,4 @@
-# TCL Android TV HDMI 1 / 2 / 3 GUI Launcher
+# TCL HDMI Launcher
 
 <p align="left">
   <a href="README.md">English</a> | <b>繁體中文</b>
@@ -237,7 +237,7 @@ TvContract.buildChannelUriForPassthroughInput(HDMI_INPUT_ID)
 
 | 項目 | 規格值 |
 |---|---|
-| 版本 | v1.0.3 (`versionCode 5`) |
+| 版本 | v1.1.2 (`versionCode 5`) |
 | `minSdk` | 25 (Android 7.1) |
 | `targetSdk` | 37 |
 | `compileSdk` | 37 |
