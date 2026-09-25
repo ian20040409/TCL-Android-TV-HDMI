@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:background="#121620"
+    android:padding="32dp">
+
+    <!-- 頂部標題區 -->
+    <TextView
+        android:id="@+id/tvTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="選擇 HDMI 訊號源"
+        android:textSize="32sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:layout_marginBottom="8dp" />
+
+    <!-- 倒數或狀態提示 -->
+    <TextView
+        android:id="@+id/tvCountdownHint"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="移動遙控器方向鍵選擇訊號源"
+        android:textSize="18sp"
+        android:textColor="#A0AEC0"
+        android:layout_marginBottom="40dp" />
+
+    <!-- HDMI 卡片橫向清單 -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center">
+
+        <!-- HDMI 1 卡片 -->
+        <LinearLayout
+            android:id="@+id/btnHdmi1"
+            android:layout_width="220dp"
+            android:layout_height="220dp"
+            android:layout_margin="16dp"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:focusable="true"
+            android:clickable="true"
+            android:background="@drawable/btn_hdmi_selector"
+            android:padding="16dp">
+
+            <TextView
+                android:id="@+id/badgeHdmi1"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/badge_default"
+                android:text="★ 預設"
+                android:textSize="12sp"
+                android:textColor="#E2E8F0"
+                android:visibility="invisible"
+                android:layout_marginBottom="12dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="HDMI 1"
+                android:textSize="28sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Port 1"
+                android:textSize="14sp"
+                android:textColor="#CBD5E0"
+                android:layout_marginTop="8dp" />
+        </LinearLayout>
+
+        <!-- HDMI 2 卡片 -->
+        <LinearLayout
+            android:id="@+id/btnHdmi2"
+            android:layout_width="220dp"
+            android:layout_height="220dp"
+            android:layout_margin="16dp"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:focusable="true"
+            android:clickable="true"
+            android:background="@drawable/btn_hdmi_selector"
+            android:padding="16dp">
+
+            <TextView
+                android:id="@+id/badgeHdmi2"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/badge_default"
+                android:text="★ 預設"
+                android:textSize="12sp"
+                android:textColor="#E2E8F0"
+                android:visibility="invisible"
+                android:layout_marginBottom="12dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="HDMI 2"
+                android:textSize="28sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Port 2"
+                android:textSize="14sp"
+                android:textColor="#CBD5E0"
+                android:layout_marginTop="8dp" />
+        </LinearLayout>
+
+        <!-- HDMI 3 卡片 -->
+        <LinearLayout
+            android:id="@+id/btnHdmi3"
+            android:layout_width="220dp"
+            android:layout_height="220dp"
+            android:layout_margin="16dp"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:focusable="true"
+            android:clickable="true"
+            android:background="@drawable/btn_hdmi_selector"
+            android:padding="16dp">
+
+            <TextView
+                android:id="@+id/badgeHdmi3"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/badge_default"
+                android:text="★ 預設"
+                android:textSize="12sp"
+                android:textColor="#E2E8F0"
+                android:visibility="invisible"
+                android:layout_marginBottom="12dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="HDMI 3"
+                android:textSize="28sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Port 3"
+                android:textSize="14sp"
+                android:textColor="#CBD5E0"
+                android:layout_marginTop="8dp" />
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- 底部操作提示 -->
+    <TextView
+        android:id="@+id/tvFooterHint"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="[OK 鍵] 立即切換   •   [長按 OK] 設為開機預設   •   [返回鍵] 離開"
+        android:textSize="14sp"
+        android:textColor="#718096"
+        android:layout_marginTop="36dp" />
+
+</LinearLayout>

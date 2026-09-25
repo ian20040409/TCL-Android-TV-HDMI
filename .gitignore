@@ -1,0 +1,77 @@
+# ====================================================================
+# Android Studio / Gradle / Kotlin
+# ====================================================================
+*.iml
+.gradle/
+build/
+*/build/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# ====================================================================
+# 機密設定與金鑰（防範 Key、帳密外洩）
+# ====================================================================
+# 本地 SDK/NDK 路徑與本機特定配置
+local.properties
+
+# Android 簽署金鑰與憑證
+*.jks
+*.keystore
+*.p12
+*.key
+*.pem
+*.pk8
+signing.properties
+keystore.properties
+
+# 環境變數與機密設定檔
+.env
+.env.*
+!.env.example
+secrets.properties
+credentials.json
+google-services.json
+
+# ====================================================================
+# 打包輸出產物
+# ====================================================================
+*.apk
+*.ap_
+*.aab
+output-metadata.json
+
+# ====================================================================
+# IDE / 編輯器快取與個人設定
+# ====================================================================
+# IntelliJ / Android Studio
+.idea/
+!.idea/codeStyles/
+!.idea/vcs.xml
+!.idea/misc.xml
+*.iws
+
+# VS Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# ====================================================================
+# 作業系統與臨時日誌檔案
+# ====================================================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Logs & Crash reports
+*.log
+crashlytics-build.properties

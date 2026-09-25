@@ -1,0 +1,55 @@
+plugins {
+    alias(libs.plugins.android.application)
+}
+
+android {
+    namespace  = "com.example.tclhdmilauncher"
+    compileSdk = 35
+
+    defaultConfig {
+        applicationId = "com.example.tclhdmilauncher"
+        minSdk        = 23   // Android 6.0 — TvInputManager 穩定支援
+        targetSdk     = 35
+        versionCode   = 1
+        versionName   = "1.0"
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled   = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+        debug {
+            isMinifyEnabled   = false
+            isShrinkResources = false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    // ── 記憶體 / APK 體積極致最佳化 ───────────────────────────────────────────
+    packaging {
+        resources {
+            excludes += setOf(
+                "META-INF/DEPENDENCIES",
+                "META-INF/LICENSE",
+                "META-INF/LICENSE.txt",
+                "META-INF/NOTICE",
+                "META-INF/NOTICE.txt",
+                "kotlin/**",
+                "DebugProbesKt.bin"
+            )
+        }
+    }
+}
+
+// 零外部依賴：完全依賴 Android 系統原生的 Activity, Intent, TvContract, Handler
+// 不常駐記憶體、不消耗背景 CPU
+dependencies { }
