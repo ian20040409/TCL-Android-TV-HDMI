@@ -45,4 +45,38 @@
     <string name="menu_app_info">应用信息</string>
     <string name="toast_cannot_launch">无法启动 %s</string>
     <string name="toast_disable_hint">请在设置页面点击“停用”</string>
+
+    <!-- Accessibility Service -->
+    <string name="accessibility_service_label">HDMI Launcher 待机唤醒与 Home 键映射</string>
+    <string name="accessibility_service_description">确保电视待机唤醒时自动返回桌面，并将遥控器 Home 键映射为直接开启本 Launcher。</string>
+
+    <!-- Accessibility Wake UI -->
+    <string name="btn_wake_guard_on">无障碍唤醒: 已开启</string>
+    <string name="btn_wake_guard_off">无障碍唤醒: 未开启</string>
+    <string name="dialog_wake_guard_title">待机唤醒与 Home 键保障</string>
+    <string name="dialog_wake_guard_msg_on">已启用无障碍唤醒与 Home 键映射服务。\n\n• 电视睡眠唤醒 100% 强制返回本桌面\n• 按遥控器 Home 键一律直达本桌面</string>
+    <string name="dialog_wake_guard_msg_off">目前尚未开启无障碍服务。\n\n启用后，将获得两大系统级能力：\n1. 待机睡眠苏醒时 100% 强制返回本桌面（不掉入 AV 或无信号）\n2. 启用 Button Mapper 功能：遥控器 Home 键一律改为打开本 Launcher 桌面。\n\n点击“前往设置”后，若电视进入主设置页，请依序进入：\n“设备偏好设置”➔“无障碍”➔ 开启本服务。</string>
+    <string name="dialog_btn_go_settings">前往设置</string>
+    <string name="dialog_btn_manage">管理设置</string>
+    <string name="dialog_btn_ok">确认</string>
+    <string name="toast_wake_guard_hint">提示：尚未开启待机无障碍唤醒，可点击顶部“无障碍唤醒”进行设置</string>
+
+    <!-- App Mode -->
+    <string name="btn_app_mode_on">App 模式: 开启</string>
+    <string name="btn_app_mode_off">App 模式: 关闭</string>
+    <string name="btn_hdmi_selector">HDMI 切换</string>
+    <string name="app_mode_active_status">App 模式已开启（默认打开应用程序列表）</string>
+    <string name="app_mode_active_with_auto_app">App 模式已开启（自动启动：%s）</string>
+    <string name="toast_app_mode_on">已开启 App 模式：默认打开应用程序列表</string>
+    <string name="toast_app_mode_off">已关闭 App 模式：默认打开 HDMI 信号源切换</string>
+    <string name="btn_auto_open_none">自动启动: 无</string>
+    <string name="btn_auto_open_app">自动启动: %s</string>
+    <string name="menu_set_auto_open">设为自动启动</string>
+    <string name="menu_clear_auto_open">取消自动启动</string>
+    <string name="dialog_auto_open_title">选择自动启动的 App</string>
+    <string name="dialog_auto_open_none">不自动启动（停留在应用程序列表）</string>
+    <string name="toast_auto_open_set">已设置自动启动：%s</string>
+    <string name="toast_auto_open_cleared">已取消自动启动 App</string>
+    <string name="badge_auto_open">● 自动启动</string>
+    <string name="auto_open_countdown_banner">%1$d 秒后自动启动 %2$s（按方向键取消）</string>
 </resources>

@@ -1,7 +1,9 @@
 package com.lnu.tclhdmilauncher
 
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
@@ -15,6 +17,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.text.TextUtils
 import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
@@ -22,6 +25,7 @@ import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import android.view.accessibility.AccessibilityManager
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -46,7 +50,12 @@ class MainActivity : Activity(), View.OnClickListener, View.OnFocusChangeListene
         private const val PREFS_NAME = "hdmi_prefs"
         private const val KEY_DEFAULT_PORT = "default_port"
         private const val KEY_COUNTDOWN_SECONDS = "countdown_seconds"
+        private const val KEY_APP_MODE = "app_mode"
+        private const val KEY_AUTO_OPEN_PKG = "auto_open_pkg"
+        private const val KEY_AUTO_OPEN_LABEL = "auto_open_label"
         private const val DEFAULT_COUNTDOWN_SECONDS = 3
+        const val EXTRA_FROM_APP_LIST = "from_app_list"
+
 
         // TCL 實機硬體訊號源 ID (dumpsys tv_input)
         private const val HW_HDMI1 = "com.tcl.tvinput/.passthroughinput.TvPassThroughService/HW1413744128"
@@ -72,11 +81,69 @@ class MainActivity : Activity(), View.OnClickListener, View.OnFocusChangeListene
         // 記憶體持久化快取，消除主執行緒重複讀取磁碟 XML
         private var cachedDefaultPort: Int? = null
         private var cachedCountdownSeconds: Int? = null
+        @Volatile
+        private var cachedAppMode: Boolean? = null
+        @Volatile
+        private var cachedAutoOpenPkg: String? = null
+        @Volatile
+        private var cachedAutoOpenLabel: String? = null
+        @Volatile
+        private var isFirstLaunchInProcess: Boolean = true
+
+        fun isAppModeEnabled(context: Context): Boolean {
+            cachedAppMode?.let { return it }
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val enabled = prefs.getBoolean(KEY_APP_MODE, false)
+            cachedAppMode = enabled
+            return enabled
+        }
+
+        fun setAppModeEnabled(context: Context, enabled: Boolean) {
+            cachedAppMode = enabled
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+                .putBoolean(KEY_APP_MODE, enabled).apply()
+        }
+
+        fun getAutoOpenPackage(context: Context): String {
+            cachedAutoOpenPkg?.let { return it }
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val pkg = prefs.getString(KEY_AUTO_OPEN_PKG, "") ?: ""
+            cachedAutoOpenPkg = pkg
+            return pkg
+        }
+
+        fun getAutoOpenLabel(context: Context): String {
+            cachedAutoOpenLabel?.let { return it }
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val label = prefs.getString(KEY_AUTO_OPEN_LABEL, "") ?: ""
+            cachedAutoOpenLabel = label
+            return label
+        }
+
+        fun setAutoOpenApp(context: Context, pkg: String, label: String) {
+            cachedAutoOpenPkg = pkg
+            cachedAutoOpenLabel = label
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+                .putString(KEY_AUTO_OPEN_PKG, pkg)
+                .putString(KEY_AUTO_OPEN_LABEL, label)
+                .apply()
+        }
+
+        fun getAutoOpenDelaySeconds(context: Context): Int {
+            val sec = cachedCountdownSeconds ?: context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .getInt(KEY_COUNTDOWN_SECONDS, DEFAULT_COUNTDOWN_SECONDS).also { cachedCountdownSeconds = it }
+            return if (sec > 0) sec else DEFAULT_COUNTDOWN_SECONDS
+        }
+
+        @Volatile
+        var isForegroundFocused: Boolean = false
+            internal set
     }
 
     // 熱路徑字串快取：預先建構 1..30 秒對應各 HDMI 埠的提示文字（Hot Path 0 GC）
     private lateinit var countdownTextCache: Array<Array<String>>
     private lateinit var textCancelled: String
+    private lateinit var textAppModeActive: String
     private lateinit var textDisabledCache: Array<String>
 
     private lateinit var tvCountdown: TextView
@@ -89,6 +156,12 @@ class MainActivity : Activity(), View.OnClickListener, View.OnFocusChangeListene
     private lateinit var ivIcon1: ImageView
     private lateinit var ivIcon2: ImageView
     private lateinit var ivIcon3: ImageView
+    private lateinit var btnAppMode: LinearLayout
+    private lateinit var tvAppModeLabel: TextView
+    private lateinit var ivAppModeIcon: ImageView
+    private lateinit var btnWakeGuard: LinearLayout
+    private lateinit var tvWakeGuardLabel: TextView
+    private lateinit var ivWakeGuardIcon: ImageView
     private lateinit var btnCountdown: LinearLayout
     private lateinit var tvCountdownBtnLabel: TextView
     private lateinit var btnSettings: LinearLayout
@@ -96,15 +169,18 @@ class MainActivity : Activity(), View.OnClickListener, View.OnFocusChangeListene
 
     private var defaultPort = 3
     private var countdownDuration = DEFAULT_COUNTDOWN_SECONDS
+    private var isAppMode = false
     private var isCancelled = false
     private var isActivityResumed = false
     private var secondsLeft = DEFAULT_COUNTDOWN_SECONDS
     private var countdownDialog: AlertDialog? = null
+    private var wakeGuardDialog: AlertDialog? = null
+    private var hasShownWakeToastInSession = false
 
     private val handler = Handler(Looper.getMainLooper())
     private val tickRunnable = object : Runnable {
         override fun run() {
-            if (countdownDuration <= 0 || isDestroyed || isCancelled || isFinishing || !isActivityResumed || !hasWindowFocus()) return
+            if (isAppMode || countdownDuration <= 0 || isDestroyed || isCancelled || isFinishing || !isActivityResumed || !hasWindowFocus()) return
             secondsLeft--
             if (secondsLeft > 0) {
                 updateCountdownText()
@@ -129,20 +205,60 @@ class MainActivity : Activity(), View.OnClickListener, View.OnFocusChangeListene
         cardHdmi3.setOnLongClickListener { setDefault(3); true }
 
         updateButtonLabels()
+        updateAppModeButton()
+        updateWakeGuardButton()
         focusDefaultPortButton()
         isCancelled = false
+
+        isFirstLaunchInProcess = false
+
+        val fromAppList = intent?.getBooleanExtra(EXTRA_FROM_APP_LIST, false) == true
+        if (fromAppList) {
+            intent?.removeExtra(EXTRA_FROM_APP_LIST)
+            cancelTimer()
+        } else if (isAppMode) {
+            openAppList(immediate = true)
+            return
+        }
+
+        if (!isAccessibilityServiceEnabled() && !hasShownWakeToastInSession) {
+            hasShownWakeToastInSession = true
+            Toast.makeText(this, getString(R.string.toast_wake_guard_hint), Toast.LENGTH_LONG).show()
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         countdownDialog?.dismiss()
+        wakeGuardDialog?.dismiss()
 
         loadPreferencesFromCache()
         updateButtonLabels()
+        updateAppModeButton()
+        updateWakeGuardButton()
         focusDefaultPortButton()
+
+
+
+        val fromAppList = intent.getBooleanExtra(EXTRA_FROM_APP_LIST, false)
+        if (fromAppList) {
+            intent.removeExtra(EXTRA_FROM_APP_LIST)
+            cancelTimer()
+            updateCountdownText()
+            return
+        }
+
+        if (isAppMode) {
+            cancelTimer()
+            updateCountdownText()
+            openAppList(immediate = true)
+            return
+        }
+
         secondsLeft = countdownDuration
         isCancelled = false
+        updateCountdownText()
         if (isActivityResumed && hasWindowFocus()) {
             resumeTimerIfOnMainScreen()
         }
@@ -151,22 +267,32 @@ class MainActivity : Activity(), View.OnClickListener, View.OnFocusChangeListene
     override fun onResume() {
         super.onResume()
         isActivityResumed = true
+        isForegroundFocused = hasWindowFocus()
 
         loadPreferencesFromCache()
         updateButtonLabels()
+        updateAppModeButton()
+        updateWakeGuardButton()
         focusDefaultPortButton()
+
+        if (isAppMode) {
+            pauseTimer()
+            updateCountdownText()
+            return
+        }
 
         isCancelled = false
         if (secondsLeft <= 0) secondsLeft = countdownDuration
         updateCountdownText()
-        if (hasWindowFocus() && countdownDialog?.isShowing != true) {
+        if (hasWindowFocus() && countdownDialog?.isShowing != true && wakeGuardDialog?.isShowing != true) {
             resumeTimerIfOnMainScreen()
         }
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (countdownDialog?.isShowing == true) {
+        isForegroundFocused = hasFocus && isActivityResumed
+        if (countdownDialog?.isShowing == true || wakeGuardDialog?.isShowing == true) {
             pauseTimer()
             return
         }
@@ -180,29 +306,38 @@ class MainActivity : Activity(), View.OnClickListener, View.OnFocusChangeListene
     override fun onPause() {
         super.onPause()
         isActivityResumed = false
+        isForegroundFocused = false
         pauseTimer()
     }
 
     override fun onStop() {
         super.onStop()
+        isForegroundFocused = false
         pauseTimer()
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        isForegroundFocused = false
         countdownDialog?.dismiss()
         countdownDialog = null
+        wakeGuardDialog?.dismiss()
+        wakeGuardDialog = null
         cancelTimer()
     }
 
     private fun loadPreferencesFromCache() {
-        if (cachedDefaultPort == null || cachedCountdownSeconds == null) {
+        if (cachedDefaultPort == null || cachedCountdownSeconds == null || cachedAppMode == null) {
             val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             cachedDefaultPort = prefs.getInt(KEY_DEFAULT_PORT, 3)
             cachedCountdownSeconds = prefs.getInt(KEY_COUNTDOWN_SECONDS, DEFAULT_COUNTDOWN_SECONDS)
+            cachedAppMode = prefs.getBoolean(KEY_APP_MODE, false)
+            cachedAutoOpenPkg = prefs.getString(KEY_AUTO_OPEN_PKG, "") ?: ""
+            cachedAutoOpenLabel = prefs.getString(KEY_AUTO_OPEN_LABEL, "") ?: ""
         }
         defaultPort = cachedDefaultPort ?: 3
         countdownDuration = cachedCountdownSeconds ?: DEFAULT_COUNTDOWN_SECONDS
+        isAppMode = cachedAppMode ?: false
     }
 
     private fun focusDefaultPortButton() {
@@ -227,6 +362,7 @@ class MainActivity : Activity(), View.OnClickListener, View.OnFocusChangeListene
 
     private fun initTextCaches() {
         textCancelled = getString(R.string.text_cancelled)
+        textAppModeActive = getString(R.string.app_mode_active_status)
         textDisabledCache = Array(4) { port ->
             getString(R.string.countdown_disabled, port)
         }
@@ -245,11 +381,64 @@ class MainActivity : Activity(), View.OnClickListener, View.OnFocusChangeListene
         }
     }
 
+    private fun updateAppModeButton() {
+        if (isAppMode) {
+            tvAppModeLabel.text = getString(R.string.btn_app_mode_on)
+            tvAppModeLabel.setTextColor(0xFF86EFAC.toInt())
+            ivAppModeIcon.setImageResource(R.drawable.apps_48px)
+            ivAppModeIcon.setColorFilter(0xFF86EFAC.toInt())
+        } else {
+            tvAppModeLabel.text = getString(R.string.btn_app_mode_off)
+            tvAppModeLabel.setTextColor(0xFFE2E8F0.toInt())
+            ivAppModeIcon.setImageResource(R.drawable.apps_48px)
+            ivAppModeIcon.setColorFilter(0xFF94A3B8.toInt())
+        }
+    }
+
+    private fun toggleAppMode() {
+        isAppMode = !isAppMode
+        setAppModeEnabled(this, isAppMode)
+        updateAppModeButton()
+        if (isAppMode) {
+            cancelTimer()
+            updateCountdownText()
+            Toast.makeText(this, getString(R.string.toast_app_mode_on), Toast.LENGTH_SHORT).show()
+            openAppList(immediate = false)
+        } else {
+            secondsLeft = countdownDuration
+            isCancelled = false
+            updateCountdownText()
+            Toast.makeText(this, getString(R.string.toast_app_mode_off), Toast.LENGTH_SHORT).show()
+            if (isActivityResumed && hasWindowFocus()) {
+                resumeTimerIfOnMainScreen()
+            }
+        }
+    }
+
+    private fun openAppList(immediate: Boolean) {
+        cancelTimer()
+        val appListIntent = Intent(this, AppListActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        }
+        startActivity(appListIntent)
+        if (immediate) {
+            @Suppress("DEPRECATION")
+            overridePendingTransition(0, 0)
+        }
+    }
+
     /**
      * 倒數計時文字更新（0 Allocation、0 GC）
      */
     private fun updateCountdownText() {
-        if (isCancelled) {
+        if (isAppMode) {
+            val autoLabel = getAutoOpenLabel(this)
+            tvCountdown.text = if (autoLabel.isNotBlank()) {
+                getString(R.string.app_mode_active_with_auto_app, autoLabel)
+            } else {
+                textAppModeActive
+            }
+        } else if (isCancelled) {
             tvCountdown.text = textCancelled
         } else if (countdownDuration <= 0) {
             tvCountdown.text = textDisabledCache.getOrElse(defaultPort) { textDisabledCache[3] }
@@ -288,12 +477,44 @@ class MainActivity : Activity(), View.OnClickListener, View.OnFocusChangeListene
                 `package` = "com.tcl.settings"
             },
             Intent("android.settings.TV_SETTINGS"),
+            Intent().setComponent(ComponentName("com.android.tv.settings", "com.android.tv.settings.MainSettings")),
+            pm.getLeanbackLaunchIntentForPackage("com.android.tv.settings"),
+            pm.getLaunchIntentForPackage("com.android.tv.settings"),
             Intent(Settings.ACTION_SETTINGS)
         )
 
         for (candidate in candidates) {
             if (candidate == null) continue
             try {
+                WakeAccessibilityService.temporarilyIgnorePackage("com.tcl.settings")
+                WakeAccessibilityService.temporarilyIgnorePackage("com.android.tv.settings")
+                candidate.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(candidate)
+                return
+            } catch (_: Exception) {
+                // 繼續嘗試下一個候選 Intent
+            }
+        }
+
+        Toast.makeText(this, getString(R.string.toast_error_open_settings), Toast.LENGTH_SHORT).show()
+    }
+
+    private fun launchAndroidSystemSettings() {
+        cancelTimer()
+        val pm = packageManager
+        val candidates = listOf(
+            Intent("android.settings.TV_SETTINGS"),
+            Intent().setComponent(ComponentName("com.android.tv.settings", "com.android.tv.settings.MainSettings")),
+            pm.getLeanbackLaunchIntentForPackage("com.android.tv.settings"),
+            pm.getLaunchIntentForPackage("com.android.tv.settings"),
+            Intent(Settings.ACTION_SETTINGS)
+        )
+
+        for (candidate in candidates) {
+            if (candidate == null) continue
+            try {
+                WakeAccessibilityService.temporarilyIgnorePackage("com.tcl.settings")
+                WakeAccessibilityService.temporarilyIgnorePackage("com.android.tv.settings")
                 candidate.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 startActivity(candidate)
                 return
@@ -311,7 +532,7 @@ class MainActivity : Activity(), View.OnClickListener, View.OnFocusChangeListene
 
     private fun resumeTimerIfOnMainScreen() {
         handler.removeCallbacks(tickRunnable)
-        if (countdownDuration <= 0) {
+        if (isAppMode || countdownDuration <= 0) {
             updateCountdownText()
             return
         }
@@ -331,9 +552,10 @@ class MainActivity : Activity(), View.OnClickListener, View.OnFocusChangeListene
             val keyCode = event.keyCode
 
             // 對話框開啟時，交由對話框處理
-            if (countdownDialog?.isShowing == true) {
+            if (countdownDialog?.isShowing == true || wakeGuardDialog?.isShowing == true) {
                 if (keyCode == KeyEvent.KEYCODE_MENU || keyCode == KeyEvent.KEYCODE_BACK) {
                     countdownDialog?.dismiss()
+                    wakeGuardDialog?.dismiss()
                     return true
                 }
                 return super.dispatchKeyEvent(event)
@@ -377,7 +599,7 @@ class MainActivity : Activity(), View.OnClickListener, View.OnFocusChangeListene
                 return true
             }
 
-            // 3. 設定按鍵（SETTINGS）開啟 TCL 系統設定
+            // 3. 設定按鍵（SETTINGS）開啟 TCL 設定
             if (keyCode == KeyEvent.KEYCODE_SETTINGS) {
                 launchTclSettings()
                 return true
@@ -487,18 +709,161 @@ class MainActivity : Activity(), View.OnClickListener, View.OnFocusChangeListene
         }
     }
 
+    // ── 待機喚醒最高保障（無障礙服務狀態檢查與設定） ───────────────────────
+    private fun isAccessibilityServiceEnabled(): Boolean {
+        val expectedService = ComponentName(this, WakeAccessibilityService::class.java)
+        val am = getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager
+        if (am != null) {
+            try {
+                val enabledServices = am.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
+                for (service in enabledServices) {
+                    if (service.resolveInfo?.serviceInfo?.packageName == packageName &&
+                        service.resolveInfo?.serviceInfo?.name == WakeAccessibilityService::class.java.name) {
+                        return true
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+
+        val enabledServicesSetting = try {
+            Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
+        } catch (_: Exception) {
+            null
+        } ?: return false
+
+        val colonSplitter = TextUtils.SimpleStringSplitter(':')
+        colonSplitter.setString(enabledServicesSetting)
+        while (colonSplitter.hasNext()) {
+            val componentNameString = colonSplitter.next()
+            val enabledService = ComponentName.unflattenFromString(componentNameString)
+            if (enabledService != null && enabledService == expectedService) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private fun updateWakeGuardButton() {
+        val isEnabled = isAccessibilityServiceEnabled()
+        if (isEnabled) {
+            tvWakeGuardLabel.text = getString(R.string.btn_wake_guard_on)
+            tvWakeGuardLabel.setTextColor(0xFF86EFAC.toInt())
+            ivWakeGuardIcon.setImageResource(R.drawable.accessibility_new_48px)
+            ivWakeGuardIcon.setColorFilter(0xFF86EFAC.toInt())
+        } else {
+            tvWakeGuardLabel.text = getString(R.string.btn_wake_guard_off)
+            tvWakeGuardLabel.setTextColor(0xFFFDE047.toInt())
+            ivWakeGuardIcon.setImageResource(R.drawable.accessibility_new_48px)
+            ivWakeGuardIcon.setColorFilter(0xFFFDE047.toInt())
+        }
+    }
+
+    private fun showWakeGuardDialog() {
+        if (isFinishing || isDestroyed) return
+        wakeGuardDialog?.dismiss()
+        pauseTimer()
+
+        val isEnabled = isAccessibilityServiceEnabled()
+        val title = getString(R.string.dialog_wake_guard_title)
+        val message = if (isEnabled) {
+            getString(R.string.dialog_wake_guard_msg_on)
+        } else {
+            getString(R.string.dialog_wake_guard_msg_off)
+        }
+
+        val builder = AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+            .setTitle(title)
+            .setMessage(message)
+
+        if (isEnabled) {
+            builder.setPositiveButton(getString(R.string.dialog_btn_manage)) { d, _ ->
+                d.dismiss()
+                openAccessibilitySettings()
+            }
+            builder.setNegativeButton(getString(R.string.dialog_btn_ok)) { d, _ ->
+                d.dismiss()
+            }
+        } else {
+            builder.setPositiveButton(getString(R.string.dialog_btn_go_settings)) { d, _ ->
+                d.dismiss()
+                openAccessibilitySettings()
+            }
+            builder.setNegativeButton(getString(R.string.dialog_cancel)) { d, _ ->
+                d.dismiss()
+            }
+        }
+
+        val dialog = builder.create()
+        wakeGuardDialog = dialog
+
+        dialog.setOnDismissListener {
+            wakeGuardDialog = null
+            if (!isCancelled && countdownDuration > 0 && isActivityResumed && hasWindowFocus()) {
+                resumeTimerIfOnMainScreen()
+            }
+            focusDefaultPortButton()
+        }
+
+        dialog.show()
+    }
+
+    private fun openAccessibilitySettings() {
+        cancelTimer()
+        val pm = packageManager
+
+        // 1. 優先嘗試直達無障礙設定
+        val directAccessibilityCandidates = listOf(
+            Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS),
+            Intent("android.settings.ACCESSIBILITY_SETTINGS"),
+            Intent().setComponent(ComponentName("com.android.tv.settings", "com.android.tv.settings.device.accessibility.AccessibilityActivity")),
+            Intent().setComponent(ComponentName("com.android.tv.settings", "com.android.tv.settings.accessibility.AccessibilityActivity")),
+            Intent().setComponent(ComponentName("com.google.android.tv.frameworkpackagestubs", "com.android.tv.settings.device.accessibility.AccessibilityActivity"))
+        )
+
+        var directLaunched = false
+        for (candidate in directAccessibilityCandidates) {
+            try {
+                candidate.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                if (candidate.resolveActivity(pm) != null) {
+                    startActivity(candidate)
+                    directLaunched = true
+                    Log.i(TAG, "Direct accessibility intent dispatched: $candidate")
+                    break
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to launch candidate: ${e.message}")
+            }
+        }
+
+        if (!directLaunched) {
+            // 直達 Intent 無法解析，立即自動開啟 Android TV 原生系統設定（非 TCL 影像音效設定）
+            Log.i(TAG, "No direct accessibility intent resolvable, immediately launching Android system settings...")
+            launchAndroidSystemSettings()
+        } else {
+            // 偵測是否真正成功打開：500ms 後檢查本 Activity 是否仍具有焦點（Focus）
+            // 若 500ms 後本畫面仍處於 Resumed 且有 Window Focus，代表直達頁面並未成功跳出，立即打開 Android 原生系統設定
+            handler.postDelayed({
+                if (!isDestroyed && !isFinishing && isActivityResumed && hasWindowFocus()) {
+                    Log.w(TAG, "Window still focused after 500ms. Direct accessibility failed to display, launching Android system settings as fallback...")
+                    launchAndroidSystemSettings()
+                }
+            }, 500L)
+        }
+    }
+
     // ── View.OnClickListener 單例分流（0 匿名閉包） ─────────────────────────
     override fun onClick(v: View) {
         when (v) {
             cardHdmi1 -> { cancelTimer(); switchTo(1, fromTimer = false) }
             cardHdmi2 -> { cancelTimer(); switchTo(2, fromTimer = false) }
             cardHdmi3 -> { cancelTimer(); switchTo(3, fromTimer = false) }
+            btnAppMode -> toggleAppMode()
+            btnWakeGuard -> showWakeGuardDialog()
             btnCountdown, tvCountdown -> showCountdownSettingsDialog()
             btnSettings -> launchTclSettings()
             btnApps -> {
                 isCancelled = false
-                pauseTimer()
-                startActivity(Intent(this, AppListActivity::class.java))
+                openAppList(immediate = false)
             }
         }
     }
@@ -512,7 +877,7 @@ class MainActivity : Activity(), View.OnClickListener, View.OnFocusChangeListene
             cardHdmi1 -> updateCardFocusState(cardHdmi1, ivIcon1, tvBadge1, hasFocus, dp(8f))
             cardHdmi2 -> updateCardFocusState(cardHdmi2, ivIcon2, tvBadge2, hasFocus, dp(8f))
             cardHdmi3 -> updateCardFocusState(cardHdmi3, ivIcon3, tvBadge3, hasFocus, dp(8f))
-            btnCountdown, btnSettings, btnApps -> {
+            btnAppMode, btnWakeGuard, btnCountdown, btnSettings, btnApps -> {
                 val scale = if (hasFocus) 1.08f else 1.0f
                 v.animate().scaleX(scale).scaleY(scale).setDuration(120).start()
                 v.elevation = if (hasFocus) dp(6f).toFloat() else 0f
@@ -588,6 +953,32 @@ class MainActivity : Activity(), View.OnClickListener, View.OnFocusChangeListene
         // 彈性佔位，推至最右側
         val spacerTop = View(this)
         topBar.addView(spacerTop, LinearLayout.LayoutParams(0, 0, 1f))
+
+        // App 模式開關按鈕
+        val (btnMode, tvModeLabel, ivMode) = createPillButton(
+            iconRes = R.drawable.apps_48px,
+            label = getString(if (isAppMode) R.string.btn_app_mode_on else R.string.btn_app_mode_off),
+            density = density
+        )
+        btnAppMode = btnMode
+        tvAppModeLabel = tvModeLabel
+        ivAppModeIcon = ivMode
+        topBar.addView(btnAppMode, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+            rightMargin = dp(12f)
+        })
+
+        // 喚醒保障按鈕
+        val (btnGuard, tvGuardLabel, ivGuard) = createPillButton(
+            iconRes = R.drawable.settings_power_48px,
+            label = getString(R.string.btn_wake_guard_off),
+            density = density
+        )
+        btnWakeGuard = btnGuard
+        tvWakeGuardLabel = tvGuardLabel
+        ivWakeGuardIcon = ivGuard
+        topBar.addView(btnWakeGuard, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+            rightMargin = dp(12f)
+        })
 
         // 倒數按鈕
         val initialCountdownLabel = if (countdownDuration <= 0) {
@@ -773,7 +1164,7 @@ class MainActivity : Activity(), View.OnClickListener, View.OnFocusChangeListene
         iconRes: Int,
         label: String,
         density: Float
-    ): Pair<LinearLayout, TextView> {
+    ): Triple<LinearLayout, TextView, ImageView> {
         fun dp(v: Float): Int = (v * density + 0.5f).toInt()
 
         val iv = ImageView(this).apply {
@@ -792,7 +1183,7 @@ class MainActivity : Activity(), View.OnClickListener, View.OnFocusChangeListene
         val button = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            val hPad = dp(18f)
+            val hPad = dp(16f)
             val vPad = dp(9f)
             setPadding(hPad, vPad, hPad, vPad)
             isFocusable = true
@@ -809,10 +1200,12 @@ class MainActivity : Activity(), View.OnClickListener, View.OnFocusChangeListene
             onFocusChangeListener = this@MainActivity
         }
 
-        return Pair(button, tv)
+        return Triple(button, tv, iv)
     }
 
     private fun setupFocusNavigation() {
+        val idAppMode = View.generateViewId()
+        val idWakeGuard = View.generateViewId()
         val idCountdown = View.generateViewId()
         val idSettings = View.generateViewId()
         val idCard1 = View.generateViewId()
@@ -820,6 +1213,8 @@ class MainActivity : Activity(), View.OnClickListener, View.OnFocusChangeListene
         val idCard3 = View.generateViewId()
         val idApps = View.generateViewId()
 
+        btnAppMode.id = idAppMode
+        btnWakeGuard.id = idWakeGuard
         btnCountdown.id = idCountdown
         btnSettings.id = idSettings
         cardHdmi1.id = idCard1
@@ -827,29 +1222,39 @@ class MainActivity : Activity(), View.OnClickListener, View.OnFocusChangeListene
         cardHdmi3.id = idCard3
         btnApps.id = idApps
 
-        // btnCountdown: 位於右上角 btnSettings 左側
-        btnCountdown.nextFocusLeftId = idCountdown
+        // btnAppMode: 位於右上角最左側
+        btnAppMode.nextFocusLeftId = idAppMode
+        btnAppMode.nextFocusRightId = idWakeGuard
+        btnAppMode.nextFocusDownId = idCard1
+
+        // btnWakeGuard: 位於右上角第二個
+        btnWakeGuard.nextFocusLeftId = idAppMode
+        btnWakeGuard.nextFocusRightId = idCountdown
+        btnWakeGuard.nextFocusDownId = idCard1
+
+        // btnCountdown: 位於右上角第三個
+        btnCountdown.nextFocusLeftId = idWakeGuard
         btnCountdown.nextFocusRightId = idSettings
         btnCountdown.nextFocusDownId = idCard2
 
-        // btnSettings: 位於最右上角
+        // btnSettings: 位於最右側
         btnSettings.nextFocusLeftId = idCountdown
         btnSettings.nextFocusRightId = idSettings
         btnSettings.nextFocusDownId = idCard3
 
-        // cardHdmi1
-        cardHdmi1.nextFocusUpId = idCountdown
+        // cardHdmi1: 向上導向 btnAppMode
+        cardHdmi1.nextFocusUpId = idAppMode
         cardHdmi1.nextFocusDownId = idApps
         cardHdmi1.nextFocusLeftId = idCard1
         cardHdmi1.nextFocusRightId = idCard2
 
-        // cardHdmi2
+        // cardHdmi2: 向上導向 btnCountdown
         cardHdmi2.nextFocusUpId = idCountdown
         cardHdmi2.nextFocusDownId = idApps
         cardHdmi2.nextFocusLeftId = idCard1
         cardHdmi2.nextFocusRightId = idCard3
 
-        // cardHdmi3
+        // cardHdmi3: 向上導向 btnSettings
         cardHdmi3.nextFocusUpId = idSettings
         cardHdmi3.nextFocusDownId = idApps
         cardHdmi3.nextFocusLeftId = idCard2

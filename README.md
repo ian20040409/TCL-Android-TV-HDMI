@@ -193,6 +193,18 @@ adb shell pm disable-user --user 0 <tcl.launcher.package.name>
 
 ---
 
+### Step 4: (Highly Recommended) Enable "Wake Guard & Home Button Mapper"
+
+Enabling the Accessibility Service grants two system-level capabilities:
+1. **Standby Wake Guard**: Guaranteed 100% return to this Launcher on sleep wake (preventing AV input / no signal).
+2. **Button Mapper (Home Key Redirection)**: No matter which app you are in, pressing the remote **Home button** is intercepted to open this Launcher directly!
+
+**How to enable:**
+- In the Launcher top bar, click the "Wake Guard" button (`⚠️ Wake Guard: Off`) and select "Open Settings" (or manually go to TV Settings ➔ Device Preferences ➔ Accessibility).
+- Toggle **"HDMI Launcher Wake & Home Button Mapper"** to ON.
+
+---
+
 ## How It Works
 
 ```
@@ -232,6 +244,12 @@ TvContract.buildChannelUriForPassthroughInput(HDMI_INPUT_ID)
 - `excludeFromRecents="true"` — Prevents cluttering recent apps.
 - `singleTask` — Avoids duplicate Activity stack creation.
 - Non-blocking Handler retry — Built-in fault tolerance while system TV services initialize on cold boot.
+
+---
+
+## Recommended Projects
+
+- [spocky/miproja1](https://github.com/spocky/miproja1) - Projectivity Launcher for Android TV / Google TV.
 
 ---
 

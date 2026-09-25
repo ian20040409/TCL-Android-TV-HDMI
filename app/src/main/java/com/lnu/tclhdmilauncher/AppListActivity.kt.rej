@@ -1,0 +1,5 @@
+@@ -101,3 +102,3 @@
+     private val autoOpenTickRunnable = object : Runnable {
+         override fun run() {
+-            if (!isAutoOpenCountdownRunning || isDestroyedFlag || isFinishing || !isActivityResumed) return
++            if (!isAutoOpenCountdownRunning || isAutoOpenCancelled || isDestroyedFlag || isFinishing || !isActivityResumed || !hasWindowFocus()) return

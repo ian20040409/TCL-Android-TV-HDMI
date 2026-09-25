@@ -192,6 +192,18 @@ adb shell pm disable-user --user 0 <tcl.launcher.package.name>
 
 ---
 
+### 步驟 4：（強烈建議）開啟「待機喚醒與 Home 鍵映射」
+
+在 TCL 等 Android TV 上，開啟無障礙服務將為本 App 賦予系統最高保障：
+1. **待機喚醒防掉源**：電視睡眠喚醒時 100% 強制返回本 Launcher 桌面（徹底避免掉入 HDMI 無訊號或 AV 端子）。
+2. **Button Mapper（Home 鍵重定向）**：無論目前在任何 App，只要按下遙控器 **Home 鍵**，都會直接攔截並切換回本 HDMI Launcher 桌面！
+
+**啟用方式：**
+- 開啟 Launcher，頂部狀態列的「喚醒保障」若顯示 `⚠️ 喚醒保障: 未開啟`，按確認點選「前往設定」（或手動至電視「設定」➔「裝置偏好設定」➔「無障礙」）。
+- 將 **「HDMI Launcher 待機喚醒與 Home 鍵映射」** 開啟即可。
+
+---
+
 ## 運作原理架構
 
 ```
@@ -231,6 +243,12 @@ TvContract.buildChannelUriForPassthroughInput(HDMI_INPUT_ID)
 - `excludeFromRecents="true"` — 不污染多工清單。
 - `singleTask` — 防止多重實例堆疊。
 - 非阻塞 Handler 重試 — 冷開機 TV 底層服務初始化時自動容錯。
+
+---
+
+## 推薦專案 (Recommended Projects)
+
+- [spocky/miproja1](https://github.com/spocky/miproja1) - Projectivity Launcher for Android TV / Google TV。
 
 ---
 

@@ -45,4 +45,38 @@
     <string name="menu_app_info">App Info</string>
     <string name="toast_cannot_launch">Unable to launch %s</string>
     <string name="toast_disable_hint">Please tap \"Disable\" in settings</string>
+
+    <!-- Accessibility Service -->
+    <string name="accessibility_service_label">HDMI Launcher Wake &amp; Home Button Mapper</string>
+    <string name="accessibility_service_description">Ensures the TV returns to the home screen on wake, and remaps the remote Home button to open this Launcher.</string>
+
+    <!-- Accessibility Wake UI -->
+    <string name="btn_wake_guard_on">Accessibility Wake: On</string>
+    <string name="btn_wake_guard_off">Accessibility Wake: Off</string>
+    <string name="dialog_wake_guard_title">Accessibility Wake &amp; Home Button</string>
+    <string name="dialog_wake_guard_msg_on">Accessibility Wake &amp; Home Mapper Service is active.\n\n• 100% reliably return to this Launcher upon waking from standby\n• Remote Home button is remapped to open this Launcher</string>
+    <string name="dialog_wake_guard_msg_off">Accessibility Service is not enabled.\n\nEnabling it provides two key capabilities:\n1. 100% reliably return to this Launcher on sleep wake (preventing AV input / no signal)\n2. Button Mapper: Remaps the remote Home button to open this Launcher directly.\n\nAfter tapping \"Open Settings\", if the main settings page opens, please navigate to:\n\"Device Preferences\" ➔ \"Accessibility\" ➔ enable this service.</string>
+    <string name="dialog_btn_go_settings">Open Settings</string>
+    <string name="dialog_btn_manage">Manage Settings</string>
+    <string name="dialog_btn_ok">OK</string>
+    <string name="toast_wake_guard_hint">Tip: Standby Accessibility Wake is not enabled. Tap \"Accessibility Wake\" at the top to configure.</string>
+
+    <!-- App Mode -->
+    <string name="btn_app_mode_on">App Mode: On</string>
+    <string name="btn_app_mode_off">App Mode: Off</string>
+    <string name="btn_hdmi_selector">HDMI Input</string>
+    <string name="app_mode_active_status">App Mode On (Launcher opens App List by default)</string>
+    <string name="app_mode_active_with_auto_app">App Mode On (Auto-Start: %s)</string>
+    <string name="toast_app_mode_on">App Mode enabled: Launcher defaults to App List</string>
+    <string name="toast_app_mode_off">App Mode disabled: Launcher defaults to HDMI Selector</string>
+    <string name="btn_auto_open_none">Auto-Start: None</string>
+    <string name="btn_auto_open_app">Auto-Start: %s</string>
+    <string name="menu_set_auto_open">Set as Auto-Start</string>
+    <string name="menu_clear_auto_open">Clear Auto-Start</string>
+    <string name="dialog_auto_open_title">Select App to Auto-Start on Boot / Wake</string>
+    <string name="dialog_auto_open_none">None (Stay on App List)</string>
+    <string name="toast_auto_open_set">Auto-open on boot/wake set to: %s</string>
+    <string name="toast_auto_open_cleared">Boot/wake auto-open app cleared</string>
+    <string name="badge_auto_open">● Auto-Start</string>
+    <string name="auto_open_countdown_banner">Auto-opening %2$s in %1$ds (Press D-pad to cancel)</string>
 </resources>

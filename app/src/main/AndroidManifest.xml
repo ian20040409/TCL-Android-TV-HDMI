@@ -22,6 +22,7 @@
 
     <queries>
         <package android:name="com.tcl.settings" />
+        <package android:name="com.android.tv.settings" />
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
@@ -33,6 +34,7 @@
     </queries>
 
     <application
+        android:name=".TclHdmiApplication"
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
@@ -75,21 +77,38 @@
             android:screenOrientation="landscape"
             android:windowSoftInputMode="stateAlwaysHidden|adjustNothing" />
 
-        <!-- 開機 / 睡眠喚醒自動啟動：零服務、零常駐 -->
+        <!-- 開機 / 睡眠喚醒自動啟動 Receiver -->
         <receiver
             android:name=".BootAndWakeReceiver"
             android:exported="true">
             <intent-filter>
                 <!-- 系統完整開機 -->
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <!-- 鎖定狀態下開機（Direct Boot） -->
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
                 <!-- TCL / 高通快速開機路徑 -->
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
                 <!-- 螢幕保護 / 待機結束 → TV 從睡眠喚醒 -->
                 <action android:name="android.intent.action.DREAMING_STOPPED" />
             </intent-filter>
         </receiver>
 
+        <!-- 無障礙服務：確保待機休眠喚醒常駐與 Home 鍵強效拉回（選用開啟） -->
+        <service
+            android:name=".WakeAccessibilityService"
+            android:exported="true"
+            android:label="@string/accessibility_service_label"
+            android:description="@string/accessibility_service_description"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+
     </application>
 
 </manifest>
-

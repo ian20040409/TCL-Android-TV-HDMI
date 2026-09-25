@@ -57,6 +57,10 @@ class AppListActivity : Activity() {
 
         private const val VIEW_TYPE_SECTION = 0
         private const val VIEW_TYPE_APP = 1
+
+        @Volatile
+        var isForegroundFocused: Boolean = false
+            internal set
     }
 
     private sealed class ListItem {
@@ -75,6 +79,14 @@ class AppListActivity : Activity() {
     private lateinit var listView: ListView
     private lateinit var progressBar: ProgressBar
     private lateinit var tvEmpty: TextView
+    private lateinit var tvAutoOpenBanner: TextView
+    private lateinit var btnAppMode: LinearLayout
+    private lateinit var tvAppModeLabel: TextView
+    private lateinit var ivAppModeIcon: ImageView
+    private lateinit var btnAutoOpen: LinearLayout
+    private lateinit var tvAutoOpenLabel: TextView
+    private lateinit var ivAutoOpenIcon: ImageView
+    private lateinit var btnHdmi: LinearLayout
 
     private val items = ArrayList<ListItem>(64)
     private val iconCache = ArrayMap<String, Drawable>(64)
@@ -83,6 +95,30 @@ class AppListActivity : Activity() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private val bgExecutor = Executors.newSingleThreadExecutor()
     private var isDestroyedFlag = false
+    private var isActivityResumed = false
+    private var isAutoOpenCancelled = false
+
+    private var autoOpenSecondsLeft = 0
+    private var isAutoOpenCountdownRunning = false
+    private val autoOpenTickRunnable = object : Runnable {
+        override fun run() {
+            if (!isAutoOpenCountdownRunning || isAutoOpenCancelled || isDestroyedFlag || isFinishing || !isActivityResumed || !hasWindowFocus()) return
+            autoOpenSecondsLeft--
+            val pkg = MainActivity.getAutoOpenPackage(this@AppListActivity)
+            val label = MainActivity.getAutoOpenLabel(this@AppListActivity).ifBlank { pkg }
+            if (pkg.isBlank() || !MainActivity.isAppModeEnabled(this@AppListActivity)) {
+                cancelAutoOpenCountdown()
+                return
+            }
+            if (autoOpenSecondsLeft > 0) {
+                tvAutoOpenBanner.text = getString(R.string.auto_open_countdown_banner, autoOpenSecondsLeft, label)
+                mainHandler.postDelayed(this, 1000L)
+            } else {
+                cancelAutoOpenCountdown()
+                launchAutoOpenPackage(pkg, label)
+            }
+        }
+    }
 
     // Ordered list of recently launched package names (most recent first)
     private val recentPackages = ArrayDeque<String>(MAX_RECENT_COUNT)
@@ -108,16 +144,20 @@ class AppListActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(buildContentView())
+        updateAppModeButton()
+        updateAutoOpenButton()
 
         adapter = AppListAdapter()
         listView.adapter = adapter
 
         listView.onItemClickListener = AdapterView.OnItemClickListener { _, _, pos, _ ->
+            cancelAutoOpenCountdown()
             val item = items.getOrNull(pos)
             if (item is ListItem.App) launchApp(item)
         }
 
         listView.onItemLongClickListener = AdapterView.OnItemLongClickListener { _, _, pos, _ ->
+            cancelAutoOpenCountdown()
             val item = items.getOrNull(pos)
             if (item is ListItem.App) {
                 showAppMenu(item)
@@ -128,15 +168,107 @@ class AppListActivity : Activity() {
         }
 
         loadApps()
+
+        isAutoOpenCancelled = false
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        updateAppModeButton()
+        updateAutoOpenButton()
+        isAutoOpenCancelled = false
+        if (isActivityResumed && hasWindowFocus()) {
+            triggerBootOrWakeAutoOpenIfConfigured()
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        isActivityResumed = true
+        isForegroundFocused = hasWindowFocus()
+        updateAppModeButton()
+        updateAutoOpenButton()
+        isAutoOpenCancelled = false
+        if (hasWindowFocus()) {
+            triggerBootOrWakeAutoOpenIfConfigured()
+        }
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        isForegroundFocused = hasFocus && isActivityResumed
+        if (hasFocus && isActivityResumed) {
+            triggerBootOrWakeAutoOpenIfConfigured()
+        } else {
+            cancelAutoOpenCountdown()
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        isActivityResumed = false
+        isForegroundFocused = false
+        cancelAutoOpenCountdown()
     }
 
     override fun onDestroy() {
         isDestroyedFlag = true
+        isForegroundFocused = false
+        cancelAutoOpenCountdown()
         super.onDestroy()
         mainHandler.removeCallbacksAndMessages(null)
         bgExecutor.shutdownNow()
         iconCache.clear()
         loadingIcons.clear()
+    }
+
+    private fun triggerBootOrWakeAutoOpenIfConfigured() {
+        if (isAutoOpenCancelled || isDestroyedFlag || isFinishing || !isActivityResumed || !hasWindowFocus()) return
+        if (!MainActivity.isAppModeEnabled(this)) return
+        val pkg = MainActivity.getAutoOpenPackage(this)
+        if (pkg.isBlank()) return
+        val label = MainActivity.getAutoOpenLabel(this).ifBlank { pkg }
+
+        mainHandler.removeCallbacks(autoOpenTickRunnable)
+        autoOpenSecondsLeft = MainActivity.getAutoOpenDelaySeconds(this)
+        isAutoOpenCountdownRunning = true
+        tvAutoOpenBanner.text = getString(R.string.auto_open_countdown_banner, autoOpenSecondsLeft, label)
+        tvAutoOpenBanner.visibility = View.VISIBLE
+        mainHandler.postDelayed(autoOpenTickRunnable, 1000L)
+    }
+
+    private fun cancelAutoOpenCountdown() {
+        isAutoOpenCancelled = true
+        if (isAutoOpenCountdownRunning) {
+            isAutoOpenCountdownRunning = false
+            mainHandler.removeCallbacks(autoOpenTickRunnable)
+            if (::tvAutoOpenBanner.isInitialized) {
+                tvAutoOpenBanner.visibility = View.GONE
+            }
+        }
+    }
+
+    private fun launchAutoOpenPackage(pkg: String, label: String) {
+        val loadedApp = items.firstOrNull { it is ListItem.App && it.packageName == pkg } as? ListItem.App
+        if (loadedApp != null) {
+            launchApp(loadedApp)
+            return
+        }
+        saveRecentPackage(pkg)
+        val launchIntent = packageManager.getLeanbackLaunchIntentForPackage(pkg)
+            ?: packageManager.getLaunchIntentForPackage(pkg)
+        if (launchIntent != null) {
+            try {
+                WakeAccessibilityService.temporarilyIgnorePackage(pkg)
+                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+                startActivity(launchIntent)
+            } catch (_: Exception) {
+                Toast.makeText(this, getString(R.string.toast_cannot_launch, label), Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            Toast.makeText(this, getString(R.string.toast_cannot_launch, label), Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun loadApps() {
@@ -257,9 +389,11 @@ class AppListActivity : Activity() {
                     tvEmpty.visibility = View.VISIBLE
                 } else {
                     listView.visibility = View.VISIBLE
-                    listView.requestFocus()
-                    val firstApp = items.indexOfFirst { it is ListItem.App }
-                    if (firstApp >= 0) listView.setSelection(firstApp)
+                    if (!btnAppMode.hasFocus() && !btnAutoOpen.hasFocus() && !btnHdmi.hasFocus()) {
+                        listView.requestFocus()
+                        val firstApp = items.indexOfFirst { it is ListItem.App }
+                        if (firstApp >= 0) listView.setSelection(firstApp)
+                    }
                 }
             }
         }
@@ -310,11 +444,74 @@ class AppListActivity : Activity() {
         val action: () -> Unit
     )
 
+    private fun setAutoOpenSelection(pkg: String, label: String) {
+        MainActivity.setAutoOpenApp(this, pkg, label)
+        if (pkg.isNotBlank() && !MainActivity.isAppModeEnabled(this)) {
+            MainActivity.setAppModeEnabled(this, true)
+            updateAppModeButton()
+        }
+        updateAutoOpenButton()
+        adapter.notifyDataSetChanged()
+        if (pkg.isNotBlank()) {
+            Toast.makeText(this, getString(R.string.toast_auto_open_set, label), Toast.LENGTH_SHORT).show()
+        } else {
+            cancelAutoOpenCountdown()
+            Toast.makeText(this, getString(R.string.toast_auto_open_cleared), Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun showAutoOpenPickerDialog() {
+        cancelAutoOpenCountdown()
+        val uniqueApps = ArrayList<ListItem.App>(items.size)
+        val seen = HashSet<String>(items.size)
+        for (item in items) {
+            if (item is ListItem.App && seen.add(item.packageName)) {
+                uniqueApps.add(item)
+            }
+        }
+
+        val currentPkg = MainActivity.getAutoOpenPackage(this)
+        val labels = Array(uniqueApps.size + 1) { idx ->
+            if (idx == 0) getString(R.string.dialog_auto_open_none)
+            else uniqueApps[idx - 1].label
+        }
+        val checkedIndex = if (currentPkg.isBlank()) {
+            0
+        } else {
+            val found = uniqueApps.indexOfFirst { it.packageName == currentPkg }
+            if (found >= 0) found + 1 else 0
+        }
+
+        AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+            .setTitle(getString(R.string.dialog_auto_open_title))
+            .setSingleChoiceItems(labels, checkedIndex) { d, which ->
+                if (which == 0) {
+                    setAutoOpenSelection("", "")
+                } else {
+                    val chosen = uniqueApps[which - 1]
+                    setAutoOpenSelection(chosen.packageName, chosen.label)
+                }
+                d.dismiss()
+            }
+            .setNegativeButton(getString(R.string.dialog_cancel), null)
+            .show()
+    }
+
     private fun showAppMenu(app: ListItem.App) {
-        val options = ArrayList<MenuOption>(4).apply {
+        val isCurrentlyAutoOpen = MainActivity.getAutoOpenPackage(this) == app.packageName
+        val options = ArrayList<MenuOption>(5).apply {
             add(MenuOption(getString(R.string.menu_open), R.drawable.open_in_new_48px, 0xFF38BDF8.toInt()) {
                 launchApp(app)
             })
+            if (isCurrentlyAutoOpen) {
+                add(MenuOption(getString(R.string.menu_clear_auto_open), R.drawable.settings_power_48px, 0xFFFBBF24.toInt()) {
+                    setAutoOpenSelection("", "")
+                })
+            } else {
+                add(MenuOption(getString(R.string.menu_set_auto_open), R.drawable.settings_power_48px, 0xFF86EFAC.toInt()) {
+                    setAutoOpenSelection(app.packageName, app.label)
+                })
+            }
             if (!app.isSystem) {
                 add(MenuOption(getString(R.string.menu_uninstall), R.drawable.delete_48px, 0xFFF87171.toInt()) {
                     uninstallApp(app)
@@ -394,6 +591,8 @@ class AppListActivity : Activity() {
 
     override fun onStop() {
         super.onStop()
+        isForegroundFocused = false
+        cancelAutoOpenCountdown()
         // 進入背景時釋放圖示快取，確保外部 App 執行時 0 點陣圖常駐記憶體；
         // 且「不」呼叫 finish()，讓 AppListActivity 持續擋在 MainActivity 上方，
         // 確保外部 App 轉場或關閉時絕對不會誤喚醒底層的 MainActivity 計時器！
@@ -402,8 +601,10 @@ class AppListActivity : Activity() {
     }
 
     private fun launchApp(app: ListItem.App) {
+        cancelAutoOpenCountdown()
         saveRecentPackage(app.packageName)
         try {
+            WakeAccessibilityService.temporarilyIgnorePackage(app.packageName)
             val intent = Intent(Intent.ACTION_MAIN).apply {
                 addCategory(
                     if (app.isLeanback) Intent.CATEGORY_LEANBACK_LAUNCHER
@@ -418,6 +619,7 @@ class AppListActivity : Activity() {
                 ?: packageManager.getLaunchIntentForPackage(app.packageName)
             if (fallback != null) {
                 try {
+                    WakeAccessibilityService.temporarilyIgnorePackage(app.packageName)
                     fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     startActivity(fallback)
                 } catch (_: Exception) {
@@ -447,9 +649,96 @@ class AppListActivity : Activity() {
         )
     }
 
+    private fun updateAppModeButton() {
+        val enabled = MainActivity.isAppModeEnabled(this)
+        if (enabled) {
+            tvAppModeLabel.text = getString(R.string.btn_app_mode_on)
+            tvAppModeLabel.setTextColor(0xFF86EFAC.toInt())
+            ivAppModeIcon.setColorFilter(0xFF86EFAC.toInt())
+        } else {
+            tvAppModeLabel.text = getString(R.string.btn_app_mode_off)
+            tvAppModeLabel.setTextColor(0xFFE2E8F0.toInt())
+            ivAppModeIcon.setColorFilter(0xFF94A3B8.toInt())
+        }
+    }
+
+    private fun updateAutoOpenButton() {
+        val autoPkg = MainActivity.getAutoOpenPackage(this)
+        val autoLabel = MainActivity.getAutoOpenLabel(this)
+        if (autoPkg.isNotBlank()) {
+            val displayLabel = autoLabel.ifBlank { autoPkg }
+            tvAutoOpenLabel.text = getString(R.string.btn_auto_open_app, displayLabel)
+            tvAutoOpenLabel.setTextColor(0xFF38BDF8.toInt())
+            ivAutoOpenIcon.setColorFilter(0xFF38BDF8.toInt())
+        } else {
+            tvAutoOpenLabel.text = getString(R.string.btn_auto_open_none)
+            tvAutoOpenLabel.setTextColor(0xFFE2E8F0.toInt())
+            ivAutoOpenIcon.setColorFilter(0xFF94A3B8.toInt())
+        }
+    }
+
+    private fun toggleAppMode() {
+        cancelAutoOpenCountdown()
+        val newMode = !MainActivity.isAppModeEnabled(this)
+        MainActivity.setAppModeEnabled(this, newMode)
+        updateAppModeButton()
+        val msgRes = if (newMode) R.string.toast_app_mode_on else R.string.toast_app_mode_off
+        Toast.makeText(this, getString(msgRes), Toast.LENGTH_SHORT).show()
+    }
+
+    private fun returnToMainActivity() {
+        cancelAutoOpenCountdown()
+        val intent = Intent(this, MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            putExtra(MainActivity.EXTRA_FROM_APP_LIST, true)
+        }
+        startActivity(intent)
+        finish()
+    }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.action == KeyEvent.ACTION_DOWN) {
+            if (isAutoOpenCountdownRunning) {
+                when (event.keyCode) {
+                    KeyEvent.KEYCODE_DPAD_UP,
+                    KeyEvent.KEYCODE_DPAD_DOWN,
+                    KeyEvent.KEYCODE_DPAD_LEFT,
+                    KeyEvent.KEYCODE_DPAD_RIGHT,
+                    KeyEvent.KEYCODE_BACK,
+                    KeyEvent.KEYCODE_MENU -> {
+                        cancelAutoOpenCountdown()
+                        if (::tvAutoOpenBanner.isInitialized) {
+                            tvAutoOpenBanner.visibility = View.GONE
+                        }
+                        if (event.keyCode == KeyEvent.KEYCODE_BACK) {
+                            return true
+                        }
+                    }
+                }
+            }
+            if (listView.hasFocus() && event.keyCode == KeyEvent.KEYCODE_DPAD_UP) {
+                val firstAppPos = items.indexOfFirst { it is ListItem.App }
+                if (firstAppPos < 0 || listView.selectedItemPosition <= firstAppPos) {
+                    btnAppMode.requestFocus()
+                    return true
+                }
+            } else if ((btnAppMode.hasFocus() || btnAutoOpen.hasFocus() || btnHdmi.hasFocus()) && event.keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
+                if (items.isNotEmpty()) {
+                    listView.requestFocus()
+                    val firstAppPos = items.indexOfFirst { it is ListItem.App }
+                    if (firstAppPos >= 0 && listView.selectedItemPosition < firstAppPos) {
+                        listView.setSelection(firstAppPos)
+                    }
+                    return true
+                }
+            }
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         if (keyCode == KeyEvent.KEYCODE_BACK) {
-            finish()
+            returnToMainActivity()
             return true
         }
         return super.onKeyDown(keyCode, event)
@@ -471,6 +760,8 @@ class AppListActivity : Activity() {
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+            clipChildren = false
+            clipToPadding = false
             val pad = dp(20f)
             setPadding(pad, pad, pad, pad)
         }
@@ -491,16 +782,85 @@ class AppListActivity : Activity() {
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 28f)
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(0xFFF8FAFC.toInt())
+            isSingleLine = true
         }
         titleBox.addView(tvTitle, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
-        header.addView(titleBox, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+        header.addView(titleBox, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
 
         val tvHint = TextView(this).apply {
             text = getString(R.string.app_list_hint)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
             setTextColor(0xFF475569.toInt())
+            isSingleLine = true
+            ellipsize = TextUtils.TruncateAt.END
         }
-        header.addView(tvHint, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+        header.addView(tvHint, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f).apply {
+            leftMargin = dp(16f)
+            rightMargin = dp(16f)
+        })
+
+        // App 模式開關按鈕
+        val isAppMode = MainActivity.isAppModeEnabled(this)
+        val (modeBtn, modeLabel, modeIcon) = createHeaderPillButton(
+            iconRes = R.drawable.apps_48px,
+            label = getString(if (isAppMode) R.string.btn_app_mode_on else R.string.btn_app_mode_off),
+            density = density
+        ) {
+            toggleAppMode()
+        }
+        btnAppMode = modeBtn
+        tvAppModeLabel = modeLabel
+        ivAppModeIcon = modeIcon
+        header.addView(btnAppMode, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+            rightMargin = dp(10f)
+        })
+
+        // 開機/喚醒自動開啟 App 選擇按鈕
+        val (autoBtn, autoLabel, autoIcon) = createHeaderPillButton(
+            iconRes = R.drawable.settings_power_48px,
+            label = getString(R.string.btn_auto_open_none),
+            density = density
+        ) {
+            showAutoOpenPickerDialog()
+        }
+        btnAutoOpen = autoBtn
+        tvAutoOpenLabel = autoLabel.apply {
+            maxWidth = dp(200f)
+            isSingleLine = true
+            ellipsize = TextUtils.TruncateAt.END
+        }
+        ivAutoOpenIcon = autoIcon
+        header.addView(btnAutoOpen, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+            rightMargin = dp(10f)
+        })
+
+        // HDMI 訊號源切換按鈕
+        val (hdmiBtn, _, _) = createHeaderPillButton(
+            iconRes = R.drawable.settings_input_hdmi_24px,
+            label = getString(R.string.btn_hdmi_selector),
+            density = density
+        ) {
+            returnToMainActivity()
+        }
+        btnHdmi = hdmiBtn
+        header.addView(btnHdmi, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+
+        val idAppMode = View.generateViewId()
+        val idAutoOpen = View.generateViewId()
+        val idHdmi = View.generateViewId()
+        btnAppMode.id = idAppMode
+        btnAutoOpen.id = idAutoOpen
+        btnHdmi.id = idHdmi
+
+        btnAppMode.nextFocusLeftId = idAppMode
+        btnAppMode.nextFocusRightId = idAutoOpen
+
+        btnAutoOpen.nextFocusLeftId = idAppMode
+        btnAutoOpen.nextFocusRightId = idHdmi
+
+        btnHdmi.nextFocusLeftId = idAutoOpen
+        btnHdmi.nextFocusRightId = idHdmi
+
         root.addView(header, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
 
         // 分隔線
@@ -508,6 +868,19 @@ class AppListActivity : Activity() {
             setBackgroundColor(0xFF1E293B.toInt())
         }
         root.addView(dividerView, LinearLayout.LayoutParams(MATCH_PARENT, 1))
+
+        // 開機/喚醒自動啟動倒數提示橫幅
+        tvAutoOpenBanner = TextView(this).apply {
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(0xFF38BDF8.toInt())
+            setBackgroundColor(0xFF0F172A.toInt())
+            gravity = Gravity.CENTER
+            val vPad = dp(10f)
+            setPadding(dp(20f), vPad, dp(20f), vPad)
+            visibility = View.GONE
+        }
+        root.addView(tvAutoOpenBanner, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
 
         // 載入中指示器
         progressBar = ProgressBar(this).apply {
@@ -545,6 +918,81 @@ class AppListActivity : Activity() {
         root.addView(listView, LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f))
 
         return root
+    }
+
+    private fun createHeaderPillButton(
+        iconRes: Int,
+        label: String,
+        density: Float,
+        onClickAction: () -> Unit
+    ): Triple<LinearLayout, TextView, ImageView> {
+        fun dp(v: Float): Int = (v * density + 0.5f).toInt()
+        val radius = 24f * density
+        val strokeFocused = (2.5f * density + 0.5f).toInt()
+        val strokeNormal = (1.5f * density + 0.5f).toInt()
+
+        fun rect(fillColor: Int, strokeWidth: Int, strokeColor: Int) = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = radius
+            setColor(fillColor)
+            setStroke(strokeWidth, strokeColor)
+        }
+
+        val bgSelector = StateListDrawable().apply {
+            addState(
+                intArrayOf(android.R.attr.state_focused),
+                rect(0xFF2563EB.toInt(), strokeFocused, 0xFF93C5FD.toInt())
+            )
+            addState(
+                intArrayOf(android.R.attr.state_pressed),
+                rect(0xFF1D4ED8.toInt(), strokeFocused, 0xFFBFDBFE.toInt())
+            )
+            addState(
+                intArrayOf(),
+                rect(0xFF18181B.toInt(), strokeNormal, 0xFF2E2E33.toInt())
+            )
+        }
+
+        val iv = ImageView(this).apply {
+            val d = getDrawable(iconRes)?.mutate()
+            setImageDrawable(d)
+            setColorFilter(0xFF94A3B8.toInt())
+        }
+
+        val tv = TextView(this).apply {
+            text = label
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(0xFFE2E8F0.toInt())
+            isSingleLine = true
+            ellipsize = TextUtils.TruncateAt.END
+        }
+
+        val button = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            val hPad = dp(16f)
+            val vPad = dp(9f)
+            setPadding(hPad, vPad, hPad, vPad)
+            isFocusable = true
+            isFocusableInTouchMode = false
+            isClickable = true
+            background = bgSelector
+
+            addView(iv, LinearLayout.LayoutParams(dp(20f), dp(20f)).apply {
+                rightMargin = dp(8f)
+            })
+            addView(tv, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+
+            setOnClickListener { onClickAction() }
+            setOnFocusChangeListener { v, hasFocus ->
+                val scale = if (hasFocus) 1.08f else 1.0f
+                v.animate().scaleX(scale).scaleY(scale).setDuration(120).start()
+                v.elevation = if (hasFocus) dp(6f).toFloat() else 0f
+            }
+        }
+
+        return Triple(button, tv, iv)
     }
 
     private fun createListSelector(density: Float): Drawable {
@@ -672,14 +1120,27 @@ class AppListActivity : Activity() {
         textCol.addView(tvPkg, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
 
         row.addView(textCol, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
-        return AppViewHolder(row, ivIcon, tvLabel, tvPkg)
+
+        val tvBadge = TextView(this).apply {
+            text = getString(R.string.badge_auto_open)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(0xFF38BDF8.toInt())
+            visibility = View.GONE
+        }
+        row.addView(tvBadge, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+            leftMargin = dpToPx(12)
+        })
+
+        return AppViewHolder(row, ivIcon, tvLabel, tvPkg, tvBadge)
     }
 
     private inner class AppViewHolder(
         val rootView: View,
         val ivIcon: ImageView,
         val tvLabel: TextView,
-        val tvPkg: TextView
+        val tvPkg: TextView,
+        val tvBadge: TextView
     ) {
         var boundPackage: String = ""
 
@@ -687,6 +1148,11 @@ class AppListActivity : Activity() {
             boundPackage = app.packageName
             tvLabel.text = app.label
             tvPkg.text = app.packageName
+            tvBadge.visibility = if (MainActivity.getAutoOpenPackage(this@AppListActivity) == app.packageName) {
+                View.VISIBLE
+            } else {
+                View.GONE
+            }
 
             val cached = iconCache[app.packageName]
             if (cached != null) {
