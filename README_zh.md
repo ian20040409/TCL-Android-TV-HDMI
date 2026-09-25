@@ -237,7 +237,6 @@ TvContract.buildChannelUriForPassthroughInput(HDMI_INPUT_ID)
 
 | 項目 | 規格值 |
 |---|---|
-| 版本 | v1.1.2 (`versionCode 5`) |
 | `minSdk` | 25 (Android 7.1) |
 | `targetSdk` | 37 |
 | `compileSdk` | 37 |

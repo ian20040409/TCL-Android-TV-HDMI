@@ -238,7 +238,6 @@ TvContract.buildChannelUriForPassthroughInput(HDMI_INPUT_ID)
 
 | Parameter | Value |
 |---|---|
-| Version | v1.1.2 (`versionCode 5`) |
 | `minSdk` | 25 (Android 7.1) |
 | `targetSdk` | 37 |
 | `compileSdk` | 37 |
