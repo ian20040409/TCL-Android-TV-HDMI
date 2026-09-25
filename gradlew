@@ -116,6 +116,11 @@ esac
 
 
 
+if [ -z "$JAVA_HOME" ] && [ -d "/Applications/Android Studio.app/Contents/jbr/Contents/Home" ] ; then
+    JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+    export JAVA_HOME
+fi
+
 # Determine the Java command to use to start the JVM.
 if [ -n "$JAVA_HOME" ] ; then
     if [ -x "$JAVA_HOME/jre/sh/java" ] ; then

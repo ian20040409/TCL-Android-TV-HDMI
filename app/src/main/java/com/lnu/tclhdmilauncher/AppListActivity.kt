@@ -3,6 +3,7 @@ package com.lnu.tclhdmilauncher
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.ResolveInfo
@@ -48,6 +49,16 @@ import java.util.concurrent.Executors
  */
 class AppListActivity : Activity() {
 
+    companion object {
+        private const val PREFS_RECENT = "app_list_recent"
+        private const val KEY_RECENT_PKGS = "recent_pkgs"
+        private const val RECENT_SEPARATOR = "|"
+        private const val MAX_RECENT_COUNT = 8
+
+        private const val VIEW_TYPE_SECTION = 0
+        private const val VIEW_TYPE_APP = 1
+    }
+
     private sealed class ListItem {
         data class Section(val title: String) : ListItem()
         data class App(
@@ -72,6 +83,27 @@ class AppListActivity : Activity() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private val bgExecutor = Executors.newSingleThreadExecutor()
     private var isDestroyedFlag = false
+
+    // Ordered list of recently launched package names (most recent first)
+    private val recentPackages = ArrayDeque<String>(MAX_RECENT_COUNT)
+
+    /** Load recent package list from SharedPreferences (background-safe). */
+    private fun loadRecentPackages(): List<String> {
+        val raw = getSharedPreferences(PREFS_RECENT, Context.MODE_PRIVATE)
+            .getString(KEY_RECENT_PKGS, "") ?: ""
+        return if (raw.isBlank()) emptyList()
+        else raw.split(RECENT_SEPARATOR).filter { it.isNotBlank() }
+    }
+
+    /** Push a package to the front of the recents list and persist it. */
+    private fun saveRecentPackage(pkg: String) {
+        recentPackages.remove(pkg)
+        recentPackages.addFirst(pkg)
+        while (recentPackages.size > MAX_RECENT_COUNT) recentPackages.removeLast()
+        val serialized = recentPackages.joinToString(RECENT_SEPARATOR)
+        getSharedPreferences(PREFS_RECENT, Context.MODE_PRIVATE).edit()
+            .putString(KEY_RECENT_PKGS, serialized).apply()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -112,6 +144,12 @@ class AppListActivity : Activity() {
         listView.visibility = View.GONE
         tvEmpty.visibility = View.GONE
 
+        // Read recents on the main thread (SharedPreferences is main-thread-safe)
+        val savedRecents = loadRecentPackages()
+        // Sync in-memory list from prefs (in case activity was recreated)
+        recentPackages.clear()
+        recentPackages.addAll(savedRecents)
+
         bgExecutor.execute {
             val pm = packageManager
             val selfPkg = packageName
@@ -142,6 +180,8 @@ class AppListActivity : Activity() {
             val tvUserApps = ArrayList<ListItem.App>(24)
             val mobileUserApps = ArrayList<ListItem.App>(16)
             val systemApps = ArrayList<ListItem.App>(32)
+            // Map for quick recent-app lookup
+            val pkgToApp = ArrayMap<String, ListItem.App>(resolvedMap.size)
 
             for (i in 0 until resolvedMap.size) {
                 val (ri, isLeanback) = resolvedMap.valueAt(i)
@@ -169,6 +209,7 @@ class AppListActivity : Activity() {
                     isDisableable = isSystem && !isPersistent
                 )
 
+                pkgToApp[pkg] = app
                 when {
                     isSystem -> systemApps.add(app)
                     isLeanback -> tvUserApps.add(app)
@@ -182,9 +223,16 @@ class AppListActivity : Activity() {
             mobileUserApps.sortWith(comp)
             systemApps.sortWith(comp)
 
+            // Build recent apps list (preserve recency order, skip stale packages)
+            val recentApps = savedRecents.mapNotNull { pkgToApp[it] }
+
             val result = ArrayList<ListItem>(
-                tvUserApps.size + mobileUserApps.size + systemApps.size + 3
+                recentApps.size + tvUserApps.size + mobileUserApps.size + systemApps.size + 4
             )
+            if (recentApps.isNotEmpty()) {
+                result.add(ListItem.Section("最近使用  (${recentApps.size})"))
+                result.addAll(recentApps)
+            }
             if (tvUserApps.isNotEmpty()) {
                 result.add(ListItem.Section("TV 應用程式  (${tvUserApps.size})"))
                 result.addAll(tvUserApps)
@@ -216,6 +264,7 @@ class AppListActivity : Activity() {
             }
         }
     }
+
 
     private fun loadIconAsync(app: ListItem.App) {
         val pkg = app.packageName
@@ -328,20 +377,19 @@ class AppListActivity : Activity() {
             }
         }
 
-        AlertDialog.Builder(this)
+        AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
             .setTitle(app.label)
             .setAdapter(menuAdapter) { _, which ->
                 options[which].action()
             }
+            .setNegativeButton("取消", null)
             .show()
     }
 
     override fun onStart() {
         super.onStart()
-        // 若從外部 App 返回清單，刷新顯示（必要時重新觸發可見圖示載入）
-        if (items.isNotEmpty()) {
-            adapter.notifyDataSetChanged()
-        }
+        // 從外部 App 返回時重新載入清單，確保「最近使用」區段即時更新
+        loadApps()
     }
 
     override fun onStop() {
@@ -354,6 +402,7 @@ class AppListActivity : Activity() {
     }
 
     private fun launchApp(app: ListItem.App) {
+        saveRecentPackage(app.packageName)
         try {
             val intent = Intent(Intent.ACTION_MAIN).apply {
                 addCategory(
@@ -528,11 +577,6 @@ class AppListActivity : Activity() {
             )
             addState(intArrayOf(), transparent)
         }
-    }
-
-    private companion object {
-        const val VIEW_TYPE_SECTION = 0
-        const val VIEW_TYPE_APP = 1
     }
 
     inner class AppListAdapter : BaseAdapter() {

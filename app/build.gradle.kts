@@ -4,14 +4,14 @@ plugins {
 
 android {
     namespace  = "com.lnu.tclhdmilauncher"
-    compileSdk = 35
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.lnu.tclhdmilauncher"
-        minSdk        = 23   // Android 6.0 — TvInputManager 穩定支援
-        targetSdk     = 35
-        versionCode   = 1
-        versionName   = "1.0"
+        minSdk        = 25
+        targetSdk     = 37
+        versionCode   = 5
+        versionName   = "1.0.3"
     }
 
     buildTypes {
